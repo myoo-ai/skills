@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "myoo-skills",
+  "version": "0.1.0",
+  "description": "Opinionated tools and standarized procedures for coding agents",
+  "author": {
+    "name": "Kevin Svitač",
+    "email": "kevin@svit.ac"
+  }
+}
