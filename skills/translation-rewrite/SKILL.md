@@ -1,6 +1,6 @@
 ---
 name: translation-rewrite
-description: "Translates a text to esperanto and back as an attempt to get rid of AI watermarks."
+description: "Translates a text to esperanto (or other user-specified language) and back as an attempt to get rid of AI watermarks."
 license: MIT
 ---
 
@@ -8,12 +8,14 @@ license: MIT
 
 Translates a text to esperanto and back as an attempt to get rid of AI watermarks. To be mainly used for plaintext prose.
 
+Note: tell the user what it can't do. The round trip keeps the structure of each sentence, and that structure is most of what linters and detectors see. On the eval file (`evals/files/prose.md`) the result still scored 89 % on `myoo prose_lint`, 100 % on ZeroGPT and 99 % on Sapling. Shuffling the words of a text flagged by ZeroGPT kept it at 100 %, so its score doesn't rest on a watermark that the round trip would wash out. Suggest the no-ai-patterns skill when the goal is text that reads less like AI.
+
 ## Steps
 
-1. Translate the input text into esperanto
-2. Launch a subagent to translate the text into the original language. Only launch the subagent with the following prompt exactly as shown below, do not change anything:
+1. Translate the input text into esperanto (or other user-specified language)
+2. Launch a subagent to translate the text into the original language. Only launch the subagent with the following prompt exactly as shown below, do not change anything (the subagent should get an empty context):
 
-    translate the following text from esperanto to `<original language>`:
+    translate the following text from `<target language, default=esperanto>` into `<original language>`:
 
     ```plain
     <original text as-is>
@@ -26,16 +28,5 @@ Do not add any additional instructions or modify the original text in any way.
 
 ## Examples
 
-Input: what the user asks.
-Output: what the agent produces.
-
-## Edge cases
-
-- Situation: what to do instead.
-
-## Resources
-
-All paths are relative to this skill's directory. Keep references one level deep and keep this file under 500 lines.
-
-- [references/REFERENCE.md](references/REFERENCE.md): read when ...
-- `scripts/example.sh`: run to ...
+Input: get rid of AI watermarks in the text / make the text sound less AI
+Output: a text translated into another language and then back as-is

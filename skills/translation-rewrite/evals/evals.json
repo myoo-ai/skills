@@ -1,0 +1,11 @@
+{
+    "skill_name": "translation-rewrite",
+    "evals": [
+      {
+        "id": 1,
+        "prompt": "can you make prose.md sound less AI using the translate method?",
+        "expected_output": "prose_new.md with original prose.md translated back and forth",
+        "files": ["evals/files/prose.md", "evals/files/prose_new.md"]
+      }
+    ]
+  }

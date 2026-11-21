@@ -9,7 +9,7 @@ license: MIT
 
 This is the main skill that holds many subskills to minimize AI patterns/slop in non-temporary outputs (mostly codebase, however can be used on other things too). Does not apply to temporary work (helper scripts, temporary analyses, etc.), unless otherwise specified by the user.
 
-This is the main skill to apply everytime the user wants the output to be less sloppy or AI. On frequent use, ask the user if you should add a rule to the current agent harness to use this skill everytime for the current project.
+Apply everytime the user wants the output to be less sloppy or AI. On frequent use, ask the user if you should add a rule to the current agent harness to use this skill everytime for the current project.
 
 ## Steps
 
@@ -27,7 +27,7 @@ You can use this as a TODO:
 
 Dispatch multiple parallel subagents. Each subagent gets a slice of the rules as divided in [Rules list](#rules-list).
 
-For each subagent, dispatch the following prompt, replacing placeholders as necessary:
+For each subagent, dispatch the following prompt exactly as shown below, replacing placeholders as necessary:
 
     You are taking the role of a human senior reviewer. You will review the output of an AI agent. The output in question might refer to a file, document, prose, media or codebase, and is located here: <insert location of the project here>
 
@@ -55,11 +55,7 @@ For each subagent, dispatch the following prompt, replacing placeholders as nece
     3. For every found violation, append it to the file and move on
     4. At end, just report the output of the final violations file
 
-    examples:
-
-    ```
-    #1 web/src/components/content/markdown.test.ts:1:1-2.48 - ai-comment
-    ```
+    Do NOT edit any file except the violations file.
 
 The subagent comes back with findings that you will fix, along with the `myoo prose_lint`/`myoo code_lint` findings (if `myoo-ai/cli` is available).
 
@@ -77,13 +73,23 @@ unquantified-claim: a performance, quality or security claim comes with no measu
 claims-not-in-change: a commit message, PR description or summary claims changes, tests or verification that the diff doesn't contain ("added comprehensive tests" with no test file touched). describe only what the diff does and what was actually run.
 changelog-bullets: a commit message or PR body lists every edited file or obvious edit as bullets instead of saying why. write an imperative subject and a short body with the reason and any non-obvious consequence.
 vague-attribution: an opinion is attributed to unnamed authorities ("experts agree", "many users report"). name the source or state it as the author's view.
-contrast-with-strawman: a mid-sentence "rather than X", "instead of X" or "unlike X" contrasts with an alternative nobody proposed. state the point directly.
+contrast-with-strawman: a sentence contrasts its point with an alternative nobody proposed, through a mid-sentence "rather than X", "instead of X" or "unlike X", or an "X, not Y" closer ("the decision is the user's, not the agent's", "use a slice, not a map"). state the point directly. keep a contrast only where readers would otherwise assume the alternative.
 nominal-style: actions are turned into nouns or trailing participle chains ("performs validation of the input, enabling detection of errors"). use the verb and split the sentence.
 formulaic-outline: the document follows a stock skeleton (Overview, Key Features, Benefits, Challenges, Future Work, Conclusion) whatever the content. keep only the sections the reader needs.
 restating-summary: a paragraph or section ends by restating what it just said, in any wording. delete the recap.
 over-structure: short content is split into headings, tables or label lists it doesn't need (a five-sentence PR description with Summary, Changes, Testing and Impact headings). write it as plain paragraphs.
 elegant-variation: the same thing goes by rotating synonyms ("the tool", "the utility", "the CLI"). pick one term and keep it, since readers assume different names mean different things.
-punctuation-substitution: an em dash, semicolon or colon was swapped for a comma splice, " - " or ", so" while the sentence stayed one long AI sentence. split it into separate sentences or restructure it.
+punctuation-substitution: an em dash, semicolon or colon was swapped for a comma splice or " - " while the sentence kept the same two unconnected halves. join the halves with a conjunction that names their relation (`because`, `so`, `which`, `although`), or split them where they are separate thoughts.
+buried-lead: a paragraph or section opens with method, background or setup and reaches the finding later. open with what happened, who it affects and what to do, then give the method.
+hedged-finding: a finding is hedged without a reason ("the attacker might have read the database", "this appears to be"). say what was found. if something is unknown, say what and why.
+hidden-actor: passive voice or an impersonal phrase hides who acted or who doesn't know ("was not verified by the vendor", "it is not known whether"). name the actor and use an active verb.
+aphoristic-closer: a sentence ends with a balanced clause that restates its fact in inverted form ("which is where the export caps rather than where the results end", "which measures our visibility, not the attack"). give the fact and its limit, then stop.
+slogan-join: two unrelated facts are joined with ", and" to save a sentence, or a condition is tacked on at the end ("it only blocks attacks, and one command turns it off if you ever need to"). give each fact its own sentence and put the condition first.
+buried-person: a thing needs, gets, deserves or allows what the people in the sentence do ("the upgrade deserves priority", "this report gives your team a starting point"). make the person the subject, or write the instruction ("upgrade to 2.4.8 first").
+container-verb: a file, log or table "holds" its content, or a request "reaches" a server or log ("env.php holds the password", "those requests never reach the log"). write "contains", and "is logged", "is received" or "is served".
+regard-instruction: the text tells the reader how to regard something instead of giving the fact ("treat those stores as affected", "assume the worst"). state the fact that leads there ("the same server runs those two stores").
+shop-talk: in-group metaphor stands in for the literal event ("got in", "pivoted", "hardening", "landed"). name the event: the attacker uploaded a file, started a process, read the database.
+heading-commentary: a heading comments on the document or the writing ("The ordering problem, stated honestly"), or sets two fragments side by side with only a comma ("Five domains, 15 months"). name the subject as a noun phrase ("Cleanup order", "Five domains in 15 months"). a chart title states its finding as a sentence with a verb.
 ```
 
 #### Code and comments subagent
@@ -91,7 +97,12 @@ punctuation-substitution: an em dash, semicolon or colon was swapped for a comma
 Only dispatch it when input is software code. Give it read access to the whole repository. The reuse and convention rules compare the change with the code around it.
 
 ```rules
-mirror-docstring: every member, private and trivial ones included, gets a doc comment whose params and return lines repeat the signature. keep doc comments for public API and for behavior, units, side effects and errors a reader can't see.
+mirror-docstring: every member, private and trivial ones included, gets a doc comment whose params and return lines repeat the signature. keep existing doc comments for public API and for behavior, units, side effects and errors a reader can't see, and don't add new ones.
+added-comment: the change adds a comment where there was none (a doc comment on a constant block, an extracted helper or a renamed function, a justification for a removed guard or an ignored error, a note above a test table). delete it. a cleanup only removes or shortens comments.
+explains-the-obvious: a comment explains what a reader already sees in the code, the names or the types (what a well-named helper returns, how a loop iterates, what a field with a clear name and type holds), often in full sentences. delete it, or keep only the part the code can't say.
+gloss-comment: a comment gives a code sample and then explains it (`// q.x: member of whatever ref q resolves to`), or glosses a term in parentheses (`names in a type's header (bases, type parameter bounds)`). keep the sample alone if it says enough, and fold a gloss the reader needs into the sentence or drop it. people write glosses too, so flag them where they pile up, not one by one.
+invented-term: a comment uses a coined term as if it were established (`the stale-read window`, `the resolution seam`), and no identifier or doc in the repository defines it. name the concrete thing.
+redundant-variable: a local only renames a value that is used once right after (`result := compute(x); return result`). use the value directly, unless the name says something the expression doesn't.
 stale-comment: a comment, doc comment or log text disagrees with the code next to it (wrong count, old name, removed parameter, a fallback that no longer exists). fix or delete the comment.
 hedging-comment: a comment hedges without a reason ("just in case", "to be safe", "should work"). name the case being guarded against, or remove the guard (see impossible-guard).
 impossible-guard: a null, undefined, type or empty check on a value that the types or the preceding code already guarantee. delete the check and trust the invariant, validate only at system boundaries.
@@ -120,13 +131,18 @@ Dispatch it after violations were fixed, on the diff of the fix pass only. It ch
 ```rules
 arbitrary-split: a long-function or deep-nesting violation was "fixed" by cutting the body into sequential chunks (helpers called once with many pass-through params, closures turned into a class) without a meaningful boundary. split only at a named concept, or keep the function.
 rule-dodge: code was rewritten just enough to stop a rule from matching while keeping the problem (a non-null assertion hidden behind an assert helper everywhere, `unwrap()` turned into `expect("")`, a duplicated block made unequal by renaming one variable, lines joined to shrink a function). fix the underlying issue the rule describes.
-score-gaming: comments were seeded with TODOs, questions, first person, contractions or "we/will/if" wording, or words were swapped mechanically ("its" to "the", "every" to "all"), to lower the "(likely) AI patterns" score. revert the swaps, and write comments only where a reason is needed, in whatever wording reads best.
+score-gaming: comments were seeded with TODOs, questions, first person, contractions or "we/will/if" wording, or words were swapped mechanically ("its" to "the", "every" to "all"), to lower the "(likely) AI patterns" score. the same goes for prose that got a "however" without a contrast, a hedge on a fact that was checked, a parenthesis around a main point or a question nobody asks. revert the swaps, and write only what the content needs, in whatever wording reads best.
 lost-reason: a fix deleted a comment that explained why (a constraint, a gotcha, a non-obvious invariant) instead of rewording it. put the reason back in plain words.
 meaning-drift: a reworded comment or doc now says something different from the original or from the code (a flipped negation, a dropped condition, "when" turned into "if" where it meant time). restore the original meaning.
 code-touched-in-comment-pass: a pass that should only change comments changed code (a deleted line next to a removed comment, a broken comment opener, changed indentation that matters). restore the code, and compare the code with comments stripped before and after.
+added-comment: the fix pass added a comment line where there was none. delete it. compare the comment lines of each hunk before and after. a fix pass only removes or shortens comments, except for a short reason that a `code_lint` rule asks for when the code can't be fixed, and a reason that lost-reason puts back.
 ```
 
 ## Examples
 
 Input: make it less sloppy/AI; make it human
 Output: new output according to this skill + a table with summary of all fixed violations. if any were ignored or skipped, report them in separate section
+
+## References
+
+- `scripts/pdf-to-md/main.py <source pdf> <output md>`: converts PDF files to markdown
