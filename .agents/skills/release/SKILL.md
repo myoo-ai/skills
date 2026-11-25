@@ -64,7 +64,7 @@ Output: same flow with version `1.0.0`, regardless of the inferred level.
 
 ## Edge cases
 
-- Uncommitted or unpushed unrelated work: ask whether to commit it first; never fold it into the release commit.
+- ask whether to commit unrelated work
 - New version not greater than the current one: stop and ask. Plugin managers ignore downgrades and equal versions.
 - Tag `vX.Y.Z` already exists locally or on `origin`: stop and ask; never move or delete a published tag.
 - Pre-release requested (`X.Y.Z-rc.1`): add `--prerelease` to `gh release create`, and warn the user that omp auto-update still installs it, because `0.2.0-rc.1` is newer semver than `0.1.0`.
