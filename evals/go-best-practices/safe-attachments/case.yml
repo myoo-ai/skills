@@ -1,0 +1,36 @@
+description: confines an attachment store to its directory against .. and symlink escapes without breaking valid names
+skills: [go-best-practices]
+prompt: |
+  A pentest found that our attachment endpoint (attach.go) can serve files
+  from outside the upload directory. Our sync job copies customer uploads
+  in from SFTP, symlinks included, so a customer who uploads a symlink to
+  /etc or to another customer's directory gets us to serve whatever it
+  points to. On top of that, the current ".." check rejects real file
+  names such as "q3..q4-report.pdf".
+
+  Fix both. We use symlinks inside the upload directory to deduplicate
+  files (also into and out of subdirectories), and those must keep working
+  as long as they stay inside it. Add regression tests. Go 1.27 (go.mod
+  says go 1.27), stdlib only. gofmt, go vet ./... and go test ./... must be
+  clean.
+graders:
+  - name: skill loaded
+    skill: go-best-practices
+  - name: vet and tests pass
+    run: go vet ./... && go test ./...
+    timeout: 3m
+  - name: gofmt clean
+    run: test -z "$(gofmt -l .)"
+  - name: reads stay inside the directory
+    timeout: 3m
+    run: cp ../eval/zz_grader_test.go . && go test -run TestGraderConfinement .
+  - name: opens files through os.Root
+    regex: 'os\.(OpenRoot|OpenInRoot)\('
+    in: file:attach.go
+  - name: no substring check on names
+    regex: 'strings\.Contains\(name, "\.\."\)'
+    in: file:attach.go
+    not: true
+  - name: symlink regression test
+    regex: '\+.*os\.Symlink\('
+    in: diff

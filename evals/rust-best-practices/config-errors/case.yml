@@ -1,0 +1,44 @@
+description: replaces String errors and unwraps in a Rust library with a proper error type that keeps the io cause
+skills: [rust-best-practices]
+prompt: |
+  kvconf is a small library crate that loads `key = value` config files.
+  Two of our services use it and both complain:
+
+  - A malformed file (a line without `=`, a missing or non-numeric port)
+    crashes the service instead of returning an error.
+  - The errors are plain strings, so a service cannot tell "the file could
+    not be read" from "the file is invalid", and cannot get at the
+    underlying I/O error to check whether the file was simply missing.
+
+  Fix the library so it fits in with how errors normally work in Rust and
+  services can log or inspect them with the usual tools. Keep the Config
+  struct as it is. Error messages should still name the file when reading
+  fails. Add tests. Rust 1.100 is installed, the crate is edition 2024 with
+  rust-version 1.88, no dependencies (there is no network access).
+  cargo fmt, cargo clippy --all-targets -- -D warnings and cargo test must
+  be clean.
+requires: [cargo]
+graders:
+  - name: skill loaded
+    skill: rust-best-practices
+  - name: fmt, clippy and tests pass
+    run: cargo fmt --check && cargo clippy --offline --all-targets -- -D warnings && cargo test --offline
+    timeout: 5m
+  - name: errors behave as specified
+    timeout: 5m
+    run: |
+      mkdir -p tests && cp ../eval/zz_grader.rs tests/ && cargo test --offline --test zz_grader -- grader_valid grader_invalid grader_missing
+  - name: io cause exposed through source, not repeated in the message
+    timeout: 5m
+    run: |
+      mkdir -p tests && cp ../eval/zz_grader.rs tests/ && cargo test --offline --test zz_grader -- grader_cause
+  - name: no unwrap in library code
+    run: |
+      ! find src -name '*.rs' -exec sed '/#\[cfg(test)\]/,$d' {} + | grep -n '\.unwrap()'
+  - name: no String error type
+    regex: 'Result<[^>]*,\s*String>'
+    in: file:src/lib.rs
+    not: true
+  - name: tests added
+    regex: '\+\s*#\[test\]'
+    in: diff

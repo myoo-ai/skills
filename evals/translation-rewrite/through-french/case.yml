@@ -1,0 +1,31 @@
+description: the translate method round-trips a launch post through French, the language the user names, and keeps every number
+skills: [translation-rewrite]
+prompt: |
+  do the translation trick on launch.md: translate it into French and back
+  into English, then put the English version back in launch.md. The numbers
+  and prices have to stay as they are.
+graders:
+  - name: launch.md was rewritten
+    file: launch.md
+    changed: true
+  - name: reworded (at least 10 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh launch.md 10
+  - name: result is English (at least 70 % of the original's English function words)
+    run: c() { grep -oiwE 'the|and|to|of|you|is' "$1" | wc -l; }; n=$(c launch.md); o=$(c ../original/launch.md); test $((n * 10)) -ge $((o * 7))
+  - name: keeps every number
+    run: sh ../eval/numbers.sh launch.md
+  - name: keeps the headings
+    run: test "$(grep -c '^#' launch.md)" -eq "$(grep -c '^#' ../original/launch.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < launch.md); o=$(wc -w < ../original/launch.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: translated through French
+    regex: '(?i)\b(les|des|est|pour|avec|vous|nous|une)\b'
+    in: transcript
+    min: 20
+  - name: not through Esperanto
+    regex: '\b(kaj|estas|povas)\b'
+    in: transcript
+    max: 2
+    dimension: process
+  - name: skill loaded
+    skill: translation-rewrite

@@ -1,0 +1,61 @@
+description: makes a C# nightly renewal job testable against a controlled clock and its logs structured and cheap on net9.0 (injected TimeProvider via DI, message templates with named properties, source-generated logging)
+tags: [csharp, logging, testing, dependency-injection]
+skills: [csharp-best-practices]
+requires: [dotnet]
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+# The installed .NET 9 runtime keeps named mutexes under /tmp, which the sandbox
+# denies. NuGet's first-run migration takes one unless its marker exists, so
+# create the marker in the fresh HOME (run graders below do the same).
+setup: mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+prompt: |
+  Two requests about RenewalReminderService (src/Billing), the nightly job that sends renewal
+  reminders. We build with the .NET 9 SDK (net9.0, C# 13), warnings are errors, and we can't
+  add NuGet packages to this repo.
+
+  1. QA can't test the job: whether a subscription is due depends on the real date, so they
+     can't run it "as of the day before renewal" or move a few days forward between two runs.
+     Their tests build the service the way the API does (`services.AddBilling()` on a
+     ServiceCollection), so they need to control the job's notion of now from there.
+     Production keeps the real clock, and the demo must keep working without any changes
+     to how it sets up its services.
+  2. Our log platform (Seq) gets these log lines as plain text, so ops can't filter or
+     group on the subscription. The subscription id must come through as a SubscriptionId
+     property. Keep the wording of the messages. The job runs over two million subscriptions
+     a night and logging shows up in its profile, so keep logging cheap, including when
+     Information is switched off.
+
+  `dotnet run --project src/Billing.Demo` must print the same output as today.
+graders:
+  - name: skill loaded
+    skill: csharp-best-practices
+  - name: builds with warnings as errors
+    run: |
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      dotnet build src/Billing.Demo -m:1 -warnaserror
+    timeout: 5m
+  - name: demo output unchanged
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build src/Billing.Demo -m:1 > "$t/build.log" || { tail -30 "$t/build.log"; exit 1; }
+      dotnet run --project src/Billing.Demo --no-build > "$t/got"
+      printf '%s\n' 'remind: S-2' 'expired: S-1' > "$t/want"
+      diff "$t/want" "$t/got"
+    timeout: 5m
+  - name: job follows a TimeProvider registered in DI and logs SubscriptionId from templates
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build ../eval/clock -m:1 > "$t/build.log" || { grep -E 'error' "$t/build.log" | sort -u | head -20; exit 1; }
+      dotnet ../eval/clock/bin/Debug/net9.0/Check.dll
+    timeout: 5m
+  - name: library does not read the system clock directly
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''DateTime(Offset)?\.(UtcNow|Now|Today)\b'' src/Billing'
+  - name: no interpolated or concatenated log messages
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''Log(Trace|Debug|Information|Warning|Error|Critical)?\([^;]*(\$"|"[[:space:]]*\+)'' src'
+  - name: logging uses source-generated LoggerMessage methods
+    run: grep -rqE --include=*.cs --exclude-dir=obj --exclude-dir=bin '\[LoggerMessage[[:space:]]*\(' src/Billing

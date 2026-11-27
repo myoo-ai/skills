@@ -1,0 +1,61 @@
+description: makes a C# CSV export writer that leaks its file handle disposable for sync and async callers on net9.0 (IDisposable plus IAsyncDisposable, idempotent dispose, ObjectDisposedException, using instead of try/finally)
+tags: [csharp, disposal, bugfix]
+skills: [csharp-best-practices]
+requires: [dotnet]
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+# The installed .NET 9 runtime keeps named mutexes under /tmp, which the sandbox
+# denies. NuGet's first-run migration takes one unless its marker exists, so
+# create the marker in the fresh HOME (run graders below do the same).
+setup: mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+prompt: |
+  CsvExportWriter (src/Exports) keeps the export file open until somebody calls Close, and
+  half of our callers forget it, so the next export to the same path fails with "file is
+  being used by another process". Please fix the writer so callers can scope its lifetime
+  the normal C# way, both in the nightly job (sync) and in our ASP.NET Core download endpoints
+  (async). The endpoints must not block a thread while the last rows get flushed on cleanup.
+  We build with the .NET 9 SDK (net9.0, C# 13), and warnings are errors.
+
+  - Cleaning up twice, or once each way, must be harmless. Writing after cleanup throws
+    ObjectDisposedException.
+  - StockExporter must release the file even when the row source throws, and that exception
+    must reach the caller unchanged.
+  - Close can go once nothing uses it; update StockExporter and the demo (src/Exports.Demo).
+    `dotnet run --project src/Exports.Demo` must print the same output as today.
+graders:
+  - name: skill loaded
+    skill: csharp-best-practices
+  - name: builds with warnings as errors
+    run: |
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      dotnet build src/Exports.Demo -m:1 -warnaserror
+    timeout: 5m
+  - name: demo output unchanged
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build src/Exports.Demo -m:1 > "$t/build.log" || { tail -30 "$t/build.log"; exit 1; }
+      dotnet run --project src/Exports.Demo --no-build > "$t/got"
+      printf '%s\n' 'exported 3 rows' 'sku,quantity,price' 'A-100,15,4.50' 'B-300,2,129.00' 'exported 3 rows async' 'sku,quantity,price' 'D-500,7,12.00' > "$t/want"
+      diff "$t/want" "$t/got"
+    timeout: 5m
+  - name: writer disposes sync and async, idempotently, and the exporter releases the file on errors
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build ../eval/dispose -m:1 > "$t/build.log" || { grep -E 'error' "$t/build.log" | sort -u | head -20; exit 1; }
+      dotnet ../eval/dispose/bin/Debug/net9.0/Check.dll
+    timeout: 5m
+  - name: no try/finally cleanup left
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''\bfinally\b'' src'
+  - name: no Close calls left
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''\.Close\(\)'' src'
+  - name: ExportAsync cleans up with await using
+    file: src/Exports/StockExporter.cs
+    match: '\bawait\s+using\b'
+  - name: async cleanup awaits the writer's own async dispose
+    regex: '\.DisposeAsync\(\)'
+    in: file:src/Exports/CsvExportWriter.cs

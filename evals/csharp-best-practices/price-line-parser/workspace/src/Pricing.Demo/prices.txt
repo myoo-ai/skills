@@ -1,0 +1,11 @@
+ABC-1001 eu 12 9.99
+ABC-1002 US 1 120
+# supplier comment
+ABC-1003 xx 5 1.00
+XY-200 uk 6 0.4999
+XY-201 tr 0 3.50
+XY-202 Tr 2 3.50
+ABC-1004 IN 3 2.25
+
+QQ-777 eu 99999999999 1
+ZZZ 5 eu 1

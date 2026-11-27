@@ -1,0 +1,6 @@
+id,customer,total
+1001,alice@example.com,12.50
+1002,bob@example.net,7.00
+1003,carol@example.org,99.99
+
+1004,dave@example.com,0.51

@@ -1,0 +1,61 @@
+description: modernizes a CommonJS callback module to ESM with Node 26 built-ins
+skills: [javascript-best-practices]
+requires: [node]
+prompt: |
+  This little order-report tool is still old-style CommonJS with callbacks. Please
+  modernize it for Node.js 26, which is what we run (`npm test` runs `node --test`):
+
+  - switch the package (src/ and test/) to ES modules
+  - keep the exported function names, but `loadOrders(file)` should return a promise
+    instead of taking a callback; when the file is not valid JSON it should reject
+    with an Error that keeps the original parse error as its cause
+  - clean up the helpers the way you'd write them today; none of them may mutate
+    their input
+  - `node src/report.js` must print the same report as today, including when run
+    without an argument; on a failure it should print the error and exit non-zero,
+    without cutting off output that is still being written
+  - update the tests to the new API and keep `npm test` green
+graders:
+  - name: skill loaded
+    skill: javascript-best-practices
+  - name: package is ESM
+    file: package.json
+    match: '"type"\s*:\s*"module"'
+  - name: existing tests pass
+    run: node --test
+    timeout: 3m
+  - name: promise API, error cause and non-mutating helpers
+    timeout: 3m
+    run: |
+      d=$(mktemp -d "$TMPDIR/grader.XXXXXX")
+      GRADER_DIR="$d" node --test ../eval/g.test.mjs
+  - name: report output unchanged and failures exit non-zero
+    timeout: 2m
+    run: |
+      d=$(mktemp -d "$TMPDIR/grader.XXXXXX")
+      printf '%s\n' 'ann@example.com: 59.50 EUR (2 orders)' 'bob@example.com: 49.93 EUR (2 orders)' 'cem@example.com: 12.50 EUR (1 orders)' > "$d/want"
+      node src/report.js > "$d/got" && diff "$d/want" "$d/got" && ! node src/report.js "$d/missing.json"
+  - name: every file passes node --check
+    run: for f in $(find src test -name '*.js' -o -name '*.mjs'); do node --check "$f" || exit 1; done
+  - name: no require() or var left
+    run: '! grep -rnE ''require\(|(^|[^[:alnum:]_$.])var[[:space:]]'' src test'
+  - name: fs imported with the node scheme
+    regex: 'from\s+[''"]node:fs(/promises)?[''"]'
+    in: file:src/orders.js
+  - name: uses Object.groupBy or Map.groupBy
+    regex: '\b(Object|Map)\.groupBy\('
+    in: file:src/orders.js
+  - name: uses toSorted
+    regex: '\.toSorted\('
+    in: file:src/orders.js
+  - name: uses structuredClone
+    regex: '\bstructuredClone\('
+    in: file:src/orders.js
+  - name: no JSON round-trip copy
+    regex: 'JSON\.parse\(\s*JSON\.stringify'
+    in: file:src/orders.js
+    not: true
+  - name: no process.exit in the report
+    regex: 'process\.exit\('
+    in: file:src/report.js
+    not: true

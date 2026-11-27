@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "allow": ["Bash(pytest:*)", "Bash(git status)"]
+  },
+  "includeCoAuthoredBy": false
+}

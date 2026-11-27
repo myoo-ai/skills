@@ -1,0 +1,36 @@
+description: replaces an unserialize-based cart cookie with safe, validated decoding and explicit errors
+skills: [php-best-practices]
+requires: [php]
+prompt: |
+  A security researcher reported that our cart cookie (src/CartCookie.php) lets anyone
+  make the server create objects of arbitrary classes: they crafted a cookie that ran a
+  destructor of some class from our codebase. Please fix the cart cookie properly.
+
+  - Keep `CartCookie::encode(Cart): string` and `CartCookie::decode(string): Cart`, and
+    the value must still be safe to put in a cookie. Existing cookies may be thrown away.
+  - A cart only holds SKUs (uppercase letters, digits and dashes, up to 32 characters)
+    with whole-number quantities from 1 to 99. Cart::add must refuse anything else with
+    an InvalidArgumentException, and a cookie with anything else is invalid.
+  - Right now a broken or tampered cookie silently becomes an empty cart, which hides
+    attacks. decode should throw a new `Example\Shop\InvalidCartCookie` exception
+    instead, and public/cart.php should then start a fresh cart and log why.
+  - Tighten the types while you're at it. We run PHP 8.5, no Composer.
+graders:
+  - name: skill loaded
+    skill: php-best-practices
+  - name: every file passes php -l
+    run: for f in $(find src public -name '*.php'); do php -l "$f" > /dev/null || exit 1; done
+  - name: no object injection, round trip works, bad cookies rejected
+    timeout: 2m
+    run: php -d error_reporting=-1 ../eval/check.php
+  - name: no unserialize
+    run: '! grep -rn "unserialize" src public'
+  - name: JSON decoding throws on errors
+    regex: 'JSON_THROW_ON_ERROR'
+    in: file:src/CartCookie.php
+  - name: no @ error suppression
+    run: php ../eval/lint.php at src public
+  - name: no empty catch
+    run: php ../eval/lint.php empty-catch src public
+  - name: strict types in src
+    run: for f in src/*.php; do grep -q 'declare(strict_types=1)' "$f" || { echo "missing in $f"; exit 1; }; done

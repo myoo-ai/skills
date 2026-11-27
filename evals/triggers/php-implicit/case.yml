@@ -1,0 +1,7 @@
+kind: trigger
+expect: php-best-practices
+query: implicit
+prompt: |
+  Our shop needs a function in src/Discount.php that applies a percentage or a
+  fixed-amount coupon to a cart total and never goes below zero. Can you write
+  it with a few tests?

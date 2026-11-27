@@ -1,0 +1,67 @@
+description: modernizes a visitor-based Java shapes library to records, a sealed interface and pattern-matching switch on JDK 25
+tags: [java, modernize]
+skills: [java-best-practices]
+requires: [javac]
+prompt: |
+  The shapes library in src/com/example/shapes still looks like Java 6: hand-written
+  value classes with getters/equals/hashCode, a visitor, instanceof-and-cast chains and
+  StringBuilder string building. Please modernize it to current Java for JDK 25 (we
+  compile with plain javac 25, no Maven/Gradle, see README.md). What I want:
+
+  - Circle, Rectangle and Triangle stay value types with value equality, read through
+    radius(), width(), height() and base() instead of getters. Keep each type top-level in
+    its own file in com.example.shapes. Reject zero, negative or NaN dimensions with
+    IllegalArgumentException.
+  - Shape only allows these three types, and adding a new shape must be a compile error
+    in Geometry until Geometry handles it.
+  - Drawing exposes title() and shapes() and must be truly immutable: if the caller
+    changes the list they passed in afterwards, the drawing must not change, and shapes()
+    cannot be modified.
+  - Get rid of ShapeVisitor/AreaVisitor and the instanceof/cast chains.
+    Geometry.area(Shape) and Geometry.describe(Shape) keep their signatures.
+  - Main's output must stay exactly the same, and the code must compile with
+    `javac -Xlint:all -Werror`.
+graders:
+  - name: skill loaded
+    skill: java-best-practices
+  - name: compiles with -Xlint:all -Werror
+    run: |
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -Xlint:all -Werror -d "$t/out" $(find src -name '*.java')
+    timeout: 3m
+  - name: Main output unchanged
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      java -Duser.language=en -Duser.country=US -cp "$t/out" com.example.shapes.Main > "$t/got"
+      printf '%s\n' 'Drawing: demo' 'Shapes: 4' 'Total area: 27.07' 'Largest: triangle b=4.0 h=5.0' '- triangle b=4.0 h=5.0 area=10.00' '- circle r=1.5 area=7.07' '- rectangle 2.0x3.0 area=6.00' > "$t/want"
+      diff "$t/want" "$t/got"
+    timeout: 3m
+  - name: records, sealed Shape, validation and immutable Drawing behave as asked
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      javac -cp "$t/out" -d "$t/out" ../eval/ShapesCheck.java
+      java -cp "$t/out" ShapesCheck
+    timeout: 3m
+  - name: visitor classes removed
+    run: test ! -e src/com/example/shapes/ShapeVisitor.java && test ! -e src/com/example/shapes/AreaVisitor.java && ! grep -rq 'Visitor' src
+  - name: no instanceof-then-cast left
+    run: '! grep -rnE ''\([[:space:]]*(Circle|Rectangle|Triangle|Shape)[[:space:]]*\)[[:space:]]*[a-z]'' src'
+  - name: Shape is declared as a sealed interface
+    file: src/com/example/shapes/Shape.java
+    match: 'sealed\s+interface\s+Shape\b'
+  - name: Geometry switches over the shape types
+    regex: 'case\s+(Circle|Rectangle|Triangle)\b'
+    in: file:src/com/example/shapes/Geometry.java
+  - name: Geometry switch has no default branch
+    regex: '\bdefault\s*(->|:)'
+    in: file:src/com/example/shapes/Geometry.java
+    not: true
+  - name: report uses a text block
+    regex: '"""'
+    in: file:src/com/example/shapes/Drawing.java
+  - name: no Collectors.toList
+    run: '! grep -rn ''Collectors\.toList()'' src'

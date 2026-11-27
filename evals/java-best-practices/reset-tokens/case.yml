@@ -1,0 +1,52 @@
+description: makes Java password reset tokens unpredictable, keeps them out of the logs and makes expiry testable on JDK 25
+tags: [java, security]
+skills: [java-best-practices]
+requires: [javac]
+prompt: |
+  Findings from a security review of our password reset tokens
+  (src/com/example/reset/ResetTokens.java, JDK 25, plain javac, see README.md):
+
+  - Someone who knows roughly when a token was issued can work out the token. Tokens
+    must have at least 128 bits of randomness and stay URL-safe, since they go into the
+    reset link.
+  - The tokens end up in our log files, so anyone with log access can take over an
+    account. We still want a log line when a token is issued or rejected, for
+    monitoring.
+  - We want tests for the 30-minute expiry, but the class reads the system time
+    directly. Add a constructor `ResetTokens(java.time.Clock)` for tests; `new
+    ResetTokens()` keeps using the real time.
+
+  Keep `issue(email)` and `redeem(token)` and their behaviour (one-time use, valid for 30
+  minutes), and keep it compiling with `javac -Xlint:all -Werror`.
+graders:
+  - name: skill loaded
+    skill: java-best-practices
+  - name: compiles with -Xlint:all -Werror
+    run: |
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -Xlint:all -Werror -d "$t/out" $(find src -name '*.java')
+    timeout: 3m
+  - name: unique URL-safe tokens, clock-driven expiry, tokens not logged
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      javac -cp "$t/out" -d "$t/out" ../eval/TokensCheck.java
+      java -cp "$t/out" TokensCheck
+    timeout: 3m
+  - name: email addresses not logged either
+    dimension: safety
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      javac -cp "$t/out" -d "$t/out" ../eval/TokensCheck.java
+      java -cp "$t/out" TokensCheck --email
+    timeout: 3m
+  - name: tokens from SecureRandom
+    regex: '\bSecureRandom\b'
+    in: file:src/com/example/reset/ResetTokens.java
+  - name: no java.util.Random, Math.random, fixed seeds or ThreadLocalRandom
+    run: '! grep -rnE ''new Random\(|Math\.random\(|ThreadLocalRandom|SplittableRandom|\.setSeed\(|new SecureRandom\([^)]'' src'
+  - name: time comes from the Clock, not System.currentTimeMillis
+    run: '! grep -rnE ''System\.currentTimeMillis|System\.nanoTime|new Date\(|Instant\.now\(\)'' src'

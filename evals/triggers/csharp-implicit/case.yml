@@ -1,0 +1,6 @@
+kind: trigger
+expect: csharp-best-practices
+query: implicit
+prompt: |
+  I need a console app in Program.cs that reads a log file, counts the lines
+  per log level (INFO, WARN, ERROR) and prints a small table. Can you write it?

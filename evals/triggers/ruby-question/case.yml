@@ -1,0 +1,7 @@
+description: a coding request in a language the skills do not cover
+kind: trigger
+expect: none
+query: near_miss
+prompt: |
+  In Ruby, what's the idiomatic way to group an array of hashes by a key and
+  sum another key per group? A short snippet is enough.

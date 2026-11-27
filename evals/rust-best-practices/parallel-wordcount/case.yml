@@ -1,0 +1,48 @@
+description: adds a multi-threaded word count that borrows its input instead of copying or reference-counting it
+skills: [rust-best-practices]
+prompt: |
+  word_counts in src/lib.rs takes minutes on our larger corpora. Add
+
+      pub fn word_counts_parallel(lines: &[String], threads: usize) -> HashMap<String, usize>
+
+  that gives exactly the same result as word_counts but splits the work
+  over `threads` OS threads (0 means as many as the machine has). The
+  corpus is already loaded and takes most of the RAM of the box, so the
+  lines must not be copied for the workers. Keep word_counts, and make it
+  as fast as it can be single-threaded while you are at it. Add tests.
+
+  Rust 1.100 is installed, the crate is edition 2024 with rust-version
+  1.88, no dependencies (there is no network access, so no rayon).
+  cargo fmt, cargo clippy --all-targets -- -D warnings and cargo test must
+  be clean.
+requires: [cargo]
+graders:
+  - name: skill loaded
+    skill: rust-best-practices
+  - name: fmt, clippy and tests pass
+    run: cargo fmt --check && cargo clippy --offline --all-targets -- -D warnings && cargo test --offline
+    timeout: 5m
+  - name: parallel result matches word_counts
+    timeout: 5m
+    run: |
+      mkdir -p tests && cp ../eval/zz_grader.rs tests/ && cargo test --offline --test zz_grader
+  - name: scoped threads borrow the lines
+    regex: 'thread::scope\(|\bscope\(\|'
+    in: file:src/lib.rs
+  - name: no Arc or copies of the input
+    regex: '\bArc\b|\.to_vec\(\)|lines\.clone\(\)|\.to_owned\(\)\.chunks'
+    in: file:src/lib.rs
+    not: true
+  - name: one map lookup per word through the entry API
+    regex: '\.entry\('
+    in: file:src/lib.rs
+  - name: no double lookups
+    regex: 'contains_key|get_mut\(&'
+    in: file:src/lib.rs
+    not: true
+  - name: no unwrap in library code
+    run: |
+      ! sed '/#\[cfg(test)\]/,$d' src/lib.rs | grep -n '\.unwrap()'
+  - name: tests added
+    regex: '\+\s*#\[test\]'
+    in: diff

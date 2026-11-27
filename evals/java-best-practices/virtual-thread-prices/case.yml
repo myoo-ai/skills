@@ -1,0 +1,51 @@
+description: makes a sequential, blocking Java price refresh concurrent with virtual threads, a concurrency cap and correct failure and interrupt handling on JDK 25
+tags: [java, concurrency, feature]
+skills: [java-best-practices]
+requires: [javac]
+prompt: |
+  PriceService.fetchAll (src/com/example/prices) calls the supplier one SKU at a time, and
+  every call blocks on an HTTP request, so our nightly refresh of a few thousand SKUs takes
+  far too long. Please make fetchAll fetch the prices concurrently. We're on JDK 25 (plain
+  javac, no Maven/Gradle, see README.md), so use virtual threads for the blocking calls.
+
+  - The supplier allows only a limited number of requests in flight per client. Add a
+    constructor PriceService(PriceSource source, int maxConcurrentRequests) and never have
+    more than that many fetch calls running at once; reject a limit below 1 with
+    IllegalArgumentException. The existing one-argument constructor should keep working
+    with a limit of 8.
+  - Results stay in the same order as the input SKUs.
+  - If a lookup fails, fetchAll throws PriceLookupException whose getCause() is the
+    exception the PriceSource threw.
+  - If the thread calling fetchAll is interrupted, fetchAll should stop promptly, throw
+    PriceLookupException and leave that thread's interrupt flag set. Don't leave threads
+    running behind after fetchAll returns or throws.
+  - Keep it compiling cleanly with `javac -Xlint:all -Werror`.
+graders:
+  - name: skill loaded
+    skill: java-best-practices
+  - name: compiles with -Xlint:all -Werror
+    run: |
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -Xlint:all -Werror -d "$t/out" $(find src -name '*.java')
+    timeout: 3m
+  - name: fetches concurrently on virtual threads within the limit, in order
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      javac -cp "$t/out" -d "$t/out" ../eval/ConcurrencyCheck.java
+      java -cp "$t/out" ConcurrencyCheck
+    timeout: 3m
+  - name: interrupting the caller stops fetchAll and keeps the interrupt flag
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      javac -cp "$t/out" -d "$t/out" ../eval/InterruptCheck.java
+      java -cp "$t/out" InterruptCheck
+    timeout: 3m
+  - name: uses a virtual-thread executor in try-with-resources or Gatherers.mapConcurrent
+    regex: 'try\s*\(\s*(final\s+)?(var|ExecutorService)\s+\w+\s*=\s*Executors\.newVirtualThreadPerTaskExecutor\(\)|Gatherers\.mapConcurrent\('
+    in: file:src/com/example/prices/PriceService.java
+  - name: no platform thread pools, raw threads or pooled virtual threads
+    run: '! grep -rnE ''new Thread\(|newFixedThreadPool|newCachedThreadPool|newWorkStealingPool|newScheduledThreadPool|ForkJoinPool|parallelStream\(\)|\.parallel\(\)'' src'

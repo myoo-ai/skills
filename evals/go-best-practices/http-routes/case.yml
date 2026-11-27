@@ -1,0 +1,47 @@
+description: adds REST routes to a net/http service using Go 1.22+ ServeMux method and wildcard patterns
+skills: [go-best-practices]
+prompt: |
+  Our notes service (notes.go) only lists notes. Please add:
+
+  - GET /notes/{id}: return the note as JSON with 200, 404 when there is no
+    such note, 400 when the id is not a number.
+  - DELETE /notes/{id}: delete the note and return 204, 404 when there is no
+    such note.
+
+  Any other method on /notes or /notes/{id} must get 405 with an Allow
+  header listing the methods that path supports. Go 1.27, stdlib only, no
+  router dependency, and follow current Go practice for the routing. Add
+  httptest tests for the new routes. gofmt, go vet ./... and go test ./...
+  must be clean.
+graders:
+  - name: skill loaded
+    skill: go-best-practices
+  - name: vet and tests pass
+    run: go vet ./... && go test ./...
+    timeout: 3m
+  - name: gofmt clean
+    run: test -z "$(gofmt -l .)"
+  - name: routes behave as specified
+    timeout: 3m
+    run: |
+      cp ../eval/zz_grader_test.go . && go test -run TestGraderRoutes .
+  - name: method and wildcard patterns
+    regex: '"GET /notes/\{id\}"'
+    in: file:notes.go
+  - name: delete route pattern
+    regex: '"DELETE /notes/\{id\}"'
+    in: file:notes.go
+  - name: list route uses a method pattern
+    regex: '"GET /notes"'
+    in: file:notes.go
+  - name: id read with PathValue
+    regex: 'PathValue\("id"\)'
+    in: file:notes.go
+  - name: no hand-written method checks
+    regex: 'r\.Method\s*[!=]='
+    in: file:notes.go
+    not: true
+  - name: no hand-parsed paths
+    regex: 'r\.URL\.Path'
+    in: file:notes.go
+    not: true

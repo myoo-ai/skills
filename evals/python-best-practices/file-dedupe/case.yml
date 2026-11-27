@@ -1,0 +1,43 @@
+description: makes a duplicate-file finder hash in parallel, in bounded memory, with a strong hash and no leaked files on Python 3.15
+skills: [python-best-practices]
+requires: [python3]
+prompt: |
+  dupfind/finder.py runs nightly over our media share (~200k files, some of
+  them multi-GB videos) and it is a mess:
+
+  - it got OOM-killed last night on a 40 GB file;
+  - it hashes one file after the other and takes all night, while the share
+    is network storage that copes fine with many reads at once;
+  - security pointed out that the reported duplicates get deleted, so two
+    different files must never be reported as duplicates because their
+    hashes collide;
+  - running the tests with `python3 -X dev -W error -m unittest` prints
+    warnings about files.
+
+  Please fix all of that. Keep `file_hash(path)` and `find_duplicates(root)`
+  and the shape of what find_duplicates returns. We run Python 3.15 only
+  (3.15.1 is installed as python3); stay stdlib-only and add tests.
+graders:
+  - name: skill loaded
+    skill: python-best-practices
+  - name: tests pass in dev mode with warnings as errors
+    run: python3 -X dev -W error -m unittest
+    timeout: 3m
+  - name: duplicates correct, parallel, bounded memory, strong hash, no leaks
+    timeout: 3m
+    run: |
+      cp ../eval/test_zz_grader.py tests/ && python3 -X dev -W error -m unittest tests.test_zz_grader
+  - name: hashes files with hashlib.file_digest
+    regex: '\bfile_digest\('
+    in: file:dupfind/finder.py
+  - name: no md5 or sha1
+    regex: '(?i)\b(md5|sha1)\b'
+    in: file:dupfind/finder.py
+    not: true
+  - name: thread pool used as a context manager
+    regex: 'with\s+(concurrent\.futures\.|futures\.)?ThreadPoolExecutor\('
+    in: file:dupfind/finder.py
+  - name: files opened with a context manager
+    regex: '(?m)^\s*\w+\s*=\s*(open|\w+\.open)\('
+    in: file:dupfind/finder.py
+    not: true

@@ -1,0 +1,58 @@
+description: reworks the error handling of a Go package and its CLI so callers match errors instead of messages
+skills: [go-best-practices]
+prompt: |
+  The error handling in our ledger package (ledger.go) is a mess, and the
+  CLI in cmd/ledger has to guess what went wrong:
+
+  - The CLI looks at the message text to tell a missing ledger file from
+    other failures, and to tell an unknown account from insufficient funds.
+  - Every failed load shows up twice in our logs.
+  - Balance returns -1 for unknown accounts, but debts are allowed, so an
+    account can really be at -1.
+  - A zero or negative amount passed to Transfer crashes the whole program.
+
+  Export ErrInsufficientFunds next to ErrUnknownAccount. Error messages must
+  still say which file, line or account is the problem. Fix the package and
+  update cmd/ledger so it keeps its exit codes without looking at message
+  text, and add tests. Go 1.27 (go.mod says go 1.27), stdlib only. gofmt,
+  go vet ./... and go test ./... must be clean.
+graders:
+  - name: skill loaded
+    skill: go-best-practices
+  - name: vet and tests pass
+    run: go vet ./... && go test ./...
+    timeout: 3m
+  - name: gofmt clean
+    run: test -z "$(gofmt -l .)"
+  - name: package errors behave as specified
+    timeout: 3m
+    run: cp ../eval/zz_grader_test.go . && go test -run TestGraderErrors .
+  - name: CLI exit codes
+    timeout: 3m
+    run: sh ../eval/cli.sh
+  - name: error strings lowercase without trailing punctuation
+    regex: '(errors\.New|fmt\.Errorf)\("([A-Z]|[^"]*[.!?]")'
+    in: file:ledger.go
+    not: true
+  - name: cause not placed first in the message
+    regex: 'fmt\.Errorf\("%[vw]'
+    in: file:ledger.go
+    not: true
+  - name: library returns errors without logging them
+    regex: '\b(log|slog)\.'
+    in: file:ledger.go
+    not: true
+  - name: no panic in the library
+    regex: '\bpanic\('
+    in: file:ledger.go
+    not: true
+  - name: CLI matches errors with errors.Is
+    regex: 'errors\.Is\('
+    in: file:cmd/ledger/main.go
+  - name: CLI does not compare errors by text or ==
+    regex: '\.Error\(\)|[!=]=\s*ledger\.Err'
+    in: file:cmd/ledger/main.go
+    not: true
+  - name: table-driven subtests
+    regex: '\+.*t\.Run\('
+    in: diff

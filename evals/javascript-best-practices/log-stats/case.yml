@@ -1,0 +1,47 @@
+description: makes log statistics lazy, prototype-safe and fast with iterator helpers, groupBy and Set methods
+skills: [javascript-best-practices]
+requires: [node]
+prompt: |
+  src/stats.js works on the small test data but falls over in production:
+
+  - firstErrors runs out of memory: in production `lines` is a lazy iterator
+    over a multi-GB log, sometimes a live tail that never ends, and we only
+    ever want the first few ERROR lines.
+  - returningUsers and newUsers take minutes with a million users per week.
+  - requestsByUser returns garbage or crashes for users who registered with
+    names like `__proto__` or `constructor`.
+
+  Please fix these. Keep the exported functions and their arguments; the
+  user lists returned may come back in any order but must stay arrays.
+  requestsByUser may return a Map if that helps. We run Node.js 26 with ES
+  modules and want no new dependencies. Add tests and keep `npm test`
+  (`node --test`) green.
+graders:
+  - name: skill loaded
+    skill: javascript-best-practices
+  - name: tests pass
+    run: node --test
+    timeout: 3m
+  - name: lazy, prototype-safe and fast
+    timeout: 3m
+    run: node --test ../eval/g.test.mjs
+  - name: iterator helpers take the first errors
+    regex: '\.take\('
+    in: file:src/stats.js
+  - name: no Array.from or spread of the whole log
+    regex: 'Array\.from\(\s*lines|\[\s*\.\.\.\s*lines\s*\]'
+    in: file:src/stats.js
+    not: true
+  - name: Set methods for the week comparisons
+    regex: '\.(intersection|difference)\('
+    in: file:src/stats.js
+    min: 2
+  - name: groupBy for the requests
+    regex: '\b(Map|Object)\.groupBy\('
+    in: file:src/stats.js
+  - name: no includes lookups
+    regex: '\.includes\('
+    in: file:src/stats.js
+    not: true
+  - name: tests cover the special user names
+    run: grep -rqE '__proto__|constructor' test

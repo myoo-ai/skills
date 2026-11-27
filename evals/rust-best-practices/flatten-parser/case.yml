@@ -1,0 +1,41 @@
+description: flattens a deeply nested Rust command parser without changing behavior and makes the describe match break on new variants
+skills: [rust-best-practices]
+prompt: |
+  parse in src/lib.rs has grown into a pyramid of nested matches and ifs
+  that nobody wants to touch. Rewrite it so it reads top to bottom, using
+  what current Rust offers. Its behavior must not change at all: every
+  input, valid or not, must give the same result as now, and the public
+  types and functions stay as they are.
+
+  We are about to add more commands, and last time describe silently
+  showed the wrong help text for a new one. Make sure the compiler points
+  us at every place that needs updating when a command is added.
+
+  Rust 1.100 is installed, the crate is edition 2024 with rust-version
+  1.88, no dependencies (there is no network access). cargo fmt,
+  cargo clippy --all-targets -- -D warnings and cargo test must be clean.
+requires: [cargo]
+graders:
+  - name: skill loaded
+    skill: rust-best-practices
+  - name: fmt, clippy and tests pass
+    run: cargo fmt --check && cargo clippy --offline --all-targets -- -D warnings && cargo test --offline
+    timeout: 5m
+  - name: behavior unchanged
+    timeout: 5m
+    run: |
+      mkdir -p tests && cp ../eval/zz_grader.rs tests/ && cargo test --offline --test zz_grader
+  - name: early exits with let-else
+    regex: '(?m)^\s*let [^;]+\belse \{'
+    in: file:src/lib.rs
+    min: 2
+  - name: no deep nesting in library code
+    run: |
+      ! sed '/#\[cfg(test)\]/,$d' src/lib.rs | grep -nE '^ {24,}\S'
+  - name: describe matches every variant without a wildcard
+    run: |
+      body=$(sed -n '/fn describe/,/^}/p' src/lib.rs) && test -n "$body" && ! printf '%s\n' "$body" | grep -nE '(^|[^a-z0-9_])_\s*=>'
+  - name: no index slicing past the prefix
+    regex: '\[1\.\.\]'
+    in: file:src/lib.rs
+    not: true

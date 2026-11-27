@@ -1,0 +1,37 @@
+description: the translate method round-trips a setup guide but brings its code blocks, inline commands, links and versions back unchanged
+skills: [translation-rewrite]
+prompt: |
+  use the translate method on setup.md to make it sound less AI. The commands,
+  code blocks, links and version numbers have to come out exactly as they are.
+  Put the English result back in setup.md.
+graders:
+  - name: setup.md was rewritten
+    file: setup.md
+    changed: true
+  - name: reworded (at least 10 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh setup.md 10
+  - name: result is English (at least 70 % of the original's English function words)
+    run: c() { grep -oiwE 'the|and|to|of|you|is' "$1" | wc -l; }; n=$(c setup.md); o=$(c ../original/setup.md); test $((n * 10)) -ge $((o * 7))
+  - name: keeps the code blocks byte for byte
+    run: sh ../eval/codeblocks.sh setup.md
+  - name: keeps every link
+    run: sh ../eval/links.sh setup.md
+  - name: keeps every number
+    run: sh ../eval/numbers.sh setup.md
+  - name: keeps the inline code
+    regex: '`LANTERNFISH_DB`[\s\S]*`make test`'
+    in: file:setup.md
+  - name: keeps the headings
+    run: test "$(grep -c '^#' setup.md)" -eq "$(grep -c '^#' ../original/setup.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < setup.md); o=$(wc -w < ../original/setup.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: translated into another language
+    judge: The transcript contains a translation of a substantial part of the prose of setup.md into a language other than English.
+    in: transcript
+  - name: round trip through Esperanto
+    regex: '\b(kaj|estas|povas)\b'
+    in: transcript
+    min: 5
+    dimension: process
+  - name: skill loaded
+    skill: translation-rewrite

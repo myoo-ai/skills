@@ -1,0 +1,106 @@
+description: modernizes a C# 2-era inventory library to nullable, records, primary constructors, collection expressions, switch expressions, throw helpers and the .NET 9 Lock on net9.0
+tags: [csharp, modernize]
+skills: [csharp-best-practices]
+requires: [dotnet]
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+# The installed .NET 9 runtime keeps named mutexes under /tmp, which the sandbox
+# denies. NuGet's first-run migration takes one unless its marker exists, so
+# create the marker in the fresh HOME (run graders below do the same).
+setup: mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+prompt: |
+  The Inventory library (src/Inventory) and its demo app (src/Inventory.App) were written
+  long ago and read like C# 2. Please modernize both to current C# for our toolchain: the
+  .NET 9 SDK, net9.0, so C# 13. Don't raise the language version above what net9.0 picks
+  and don't use anything from C# 14 or later.
+
+  - Turn on nullable reference types and treat warnings as errors for both projects, and
+    fix the warnings properly rather than suppressing them. Product.Category is optional
+    (null means uncategorised) and Find returns null when there is no match; everything
+    else is non-null.
+  - Product is plain data: callers compare products by value and make changed copies
+    with `with`. Keep `new Product(sku, name, price, category)` working.
+  - Keep all existing argument validation in InventoryService (same exception types and
+    parameter names).
+  - The stock counts are updated from several threads at once, so keep that thread-safe.
+
+  Behaviour must not change: `dotnet run --project src/Inventory.App` must print exactly
+  what it prints today, and `dotnet build src/Inventory.App` must succeed.
+graders:
+  - name: skill loaded
+    skill: csharp-best-practices
+  - name: builds with warnings as errors
+    run: |
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      dotnet build src/Inventory.App -m:1 -warnaserror
+    timeout: 5m
+  - name: demo output unchanged
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build src/Inventory.App -m:1 > "$t/build.log" || { tail -30 "$t/build.log"; exit 1; }
+      dotnet run --project src/Inventory.App --no-build > "$t/got"
+      printf '%s\n' 'A-100 Widget: 15 on hand, budget' 'A-200 Gadget: 0 on hand, standard' 'B-300 Toolbox: 2 on hand, premium' 'C-400 Sticker: 0 on hand, free' 'Categories: parts, tools' 'Z-999: not found' 'Same product: True' > "$t/want"
+      diff "$t/want" "$t/got"
+    timeout: 5m
+  - name: nullable and warnings-as-errors on in both projects, language version left at the default
+    run: |
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      for p in src/Inventory/Inventory.csproj src/Inventory.App/Inventory.App.csproj; do
+        n=$(dotnet msbuild "$p" -getProperty:Nullable | tr 'A-Z' 'a-z')
+        w=$(dotnet msbuild "$p" -getProperty:TreatWarningsAsErrors | tr 'A-Z' 'a-z')
+        l=$(dotnet msbuild "$p" -getProperty:LangVersion)
+        echo "$p: Nullable=$n TreatWarningsAsErrors=$w LangVersion=$l"
+        [ "$n" = enable ] && [ "$w" = true ] && [ "$l" = 13.0 ] || exit 1
+      done
+    timeout: 5m
+  - name: record Product, guards and behaviour match the spec
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build ../eval/behavior -m:1 > "$t/build.log" || { grep -E 'error' "$t/build.log" | sort -u | head -20; exit 1; }
+      dotnet ../eval/behavior/bin/Debug/net9.0/Check.dll
+    timeout: 5m
+  - name: nullable annotations match the spec
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build ../eval/nullable -m:1 > "$t/build.log" || { grep -E 'error' "$t/build.log" | sort -u | head -20; exit 1; }
+      dotnet ../eval/nullable/bin/Debug/net9.0/Check.dll
+    timeout: 5m
+  - name: file-scoped namespaces only
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''^[[:space:]]*namespace[[:space:]]+[A-Za-z0-9_.]+[[:space:]]*(\{.*)?$'' src'
+  - name: no new List<...> left
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''new[[:space:]]+List<'' src'
+  - name: no warnings suppressed, no null-forgiving operator in the library
+    run: |
+      ! grep -rnE --include=*.cs --include=*.csproj --include=*.props --exclude-dir=obj --exclude-dir=bin '#nullable[[:space:]]+disable|#pragma[[:space:]]+warning[[:space:]]+disable|<NoWarn>|<Nullable>(disable|warnings)' . &&
+      ! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin '[A-Za-z0-9_)>]!([.;,)[]|$)' src/Inventory
+  - name: no parameter names as string literals
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''Exception\([^)]*"(repository|sku|quantity|product|products)"'' src'
+  - name: Product is a positional record
+    file: src/Inventory/Product.cs
+    match: 'record\s+(class\s+)?Product\s*\('
+  - name: InventoryService has a primary constructor
+    file: src/Inventory/InventoryService.cs
+    match: 'class\s+InventoryService\s*\(\s*IProductRepository\s+\w+\s*\)'
+  - name: PriceBand uses a switch expression
+    file: src/Inventory/InventoryService.cs
+    match: '\bswitch\s*\{'
+  - name: argument checks use throw helpers
+    file: src/Inventory/InventoryService.cs
+    match: 'ArgumentNullException\.ThrowIfNull\(|ArgumentOutOfRangeException\.ThrowIf\w+\('
+  - name: stock lock uses System.Threading.Lock
+    file: src/Inventory/InventoryService.cs
+    match: '\b(System\.Threading\.)?Lock\s+_?\w+\s*=\s*new\b'
+  - name: no object used as a lock
+    regex: 'new\s+object\s*\(\s*\)|lock\s*\(\s*this\s*\)'
+    in: file:src/Inventory/InventoryService.cs
+    not: true
+  - name: demo app list uses a collection expression
+    file: src/Inventory.App/Program.cs
+    match: '=\s*\['

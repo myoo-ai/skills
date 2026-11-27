@@ -1,0 +1,30 @@
+description: the synonym method rewrites release notes but leaves the code blocks, inline commands and links untouched
+skills: [synonym-rewrite]
+requires: [myoo]
+prompt: |
+  use the synonym method on NOTES.md so it sounds less AI. The commands, code
+  blocks and links must stay exactly as they are, and keep the headings and
+  roughly the length. Edit NOTES.md in place.
+graders:
+  - name: NOTES.md was rewritten
+    file: NOTES.md
+    changed: true
+  - name: words were swapped (at least 25 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh NOTES.md 25
+  - name: keeps the code blocks byte for byte
+    run: sh ../eval/codeblocks.sh NOTES.md
+  - name: keeps every link
+    run: sh ../eval/links.sh NOTES.md
+  - name: keeps the inline command
+    contains: '`stackpin verify`'
+    in: file:NOTES.md
+  - name: keeps the headings
+    run: test "$(grep -c '^#' NOTES.md)" -eq "$(grep -c '^#' ../original/NOTES.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < NOTES.md); o=$(wc -w < ../original/NOTES.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: used myoo synonym_rewrite
+    regex: 'synonym_rewrite'
+    in: tools
+    dimension: process
+  - name: skill loaded
+    skill: synonym-rewrite

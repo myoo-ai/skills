@@ -1,0 +1,65 @@
+description: adds a concurrent async health check with TaskGroup, asyncio.timeout and library logging while respecting a Python 3.12 floor
+skills: [python-best-practices]
+requires: [python3]
+prompt: |
+  Please add this to probes/checker.py:
+
+      async def check_all(hosts: Iterable[str], probe: Probe, *, timeout: float = 5.0) -> dict[str, bool]
+
+  - Normalize hosts with normalize_host and probe each distinct host once.
+    The result maps each normalized host to its health.
+  - Run the probes concurrently, each bounded by `timeout` seconds.
+  - A probe that times out or raises counts as unhealthy (False), and one
+    failing probe must not cancel the others.
+  - Log every failure as a warning on the `probes.checker` logger, mentioning
+    the host.
+
+  The package supports Python 3.12+ (requires-python in pyproject.toml) and
+  must keep doing so, so use nothing newer than 3.12 even though Python
+  3.15.1 is what is installed here. Stay stdlib-only, and add async unittest
+  tests for check_all to tests/test_checker.py. The tests must pass with
+  `python3 -X dev -W error -m unittest`.
+graders:
+  - name: skill loaded
+    skill: python-best-practices
+  - name: tests pass in dev mode with warnings as errors
+    run: python3 -X dev -W error -m unittest
+    timeout: 3m
+  - name: check_all behaves as specified
+    timeout: 3m
+    run: |
+      cp ../eval/test_zz_grader.py tests/ && python3 -X dev -W error -m unittest tests.test_zz_grader
+  - name: Python 3.12 floor kept
+    regex: 'requires-python\s*=\s*">=\s*3\.12"'
+    in: file:pyproject.toml
+  - name: asyncio TaskGroup
+    regex: 'TaskGroup\(\)'
+    in: file:probes/checker.py
+  - name: asyncio.timeout context manager
+    regex: 'async with (asyncio\.)?timeout\('
+    in: file:probes/checker.py
+  - name: no wait_for or gather
+    regex: 'wait_for\(|gather\('
+    in: file:probes/checker.py
+    not: true
+  - name: module logger
+    regex: 'getLogger\(__name__\)'
+    in: file:probes/checker.py
+  - name: no f-strings in log calls
+    regex: '\.(debug|info|warning|error|exception|critical)\(\s*f["'']'
+    in: file:probes/checker.py
+    not: true
+  - name: nothing newer than the 3.12 floor
+    regex: '(?m)^\s*lazy (import|from)\b|\bfrozendict\b|\bsentinel\('
+    in: file:probes/checker.py
+    not: true
+  - name: no typing.List, Dict, Optional, Union
+    regex: '\b(List|Dict|Optional|Union)\['
+    in: file:probes/checker.py
+    not: true
+  - name: check_all returns dict[str, bool]
+    regex: '\)\s*->\s*dict\[str, bool\]:'
+    in: file:probes/checker.py
+  - name: async tests for check_all
+    regex: '(?s)IsolatedAsyncioTestCase.*check_all|check_all.*IsolatedAsyncioTestCase'
+    in: file:tests/test_checker.py

@@ -1,0 +1,24 @@
+description: the synonym method swaps words throughout but keeps sentences, headings and length
+skills: [synonym-rewrite]
+requires: [myoo]
+prompt: |
+  can you make prose.md sound less AI using the synonym method? Swap the words
+  for synonyms throughout, the frequent ones like "remote", "team" and
+  "communication" included, but keep the sentences, the 10 headings and the
+  length as they are. Edit prose.md in place.
+graders:
+  - name: prose.md was rewritten
+    file: prose.md
+    changed: true
+  - name: frequent words were swapped (remote at most half as often as in the original)
+    run: n=$(grep -oiw remote prose.md | wc -l); o=$(grep -oiw remote ../original/prose.md | wc -l); test $((n * 2)) -le "$o"
+  - name: keeps the headings
+    run: test "$(grep -c '^#' prose.md)" -eq "$(grep -c '^#' ../original/prose.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < prose.md); o=$(wc -w < ../original/prose.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: used myoo synonym_rewrite
+    regex: 'synonym_rewrite'
+    in: tools
+    dimension: process
+  - name: skill loaded
+    skill: synonym-rewrite

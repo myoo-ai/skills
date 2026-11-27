@@ -1,0 +1,10 @@
+description: a plain translation for customers, not about AI-sounding prose
+kind: trigger
+expect: none
+acceptable: [no-ai-patterns]
+query: near_miss
+prompt: |
+  Translate this notice into German for our customers in Germany:
+
+  "Our support desk is closed on 24 and 25 December. Orders placed on those
+  days ship on 27 December."

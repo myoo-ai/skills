@@ -1,0 +1,38 @@
+description: fixes prototype pollution, guessable session ids and shell injection in a Node.js upload service
+skills: [javascript-best-practices]
+requires: [node, tar]
+prompt: |
+  A pentest flagged our upload service (src/). Customers control the JSON body
+  passed to applyUserSettings and the original file names our uploads are
+  saved under, and session ids must be impossible to guess. Please fix every
+  security problem in src/.
+
+  Keep the exported functions and what they return for normal input (session
+  ids stay 32 lowercase hex characters). We run Node.js 26 with ES modules and
+  want no new dependencies. Add tests for the fixes and keep `npm test`
+  (`node --test`) green.
+graders:
+  - name: skill loaded
+    skill: javascript-best-practices
+  - name: tests pass
+    run: node --test
+    timeout: 3m
+  - name: no pollution, CSPRNG ids, no shell injection
+    timeout: 3m
+    run: node --test ../eval/g.test.mjs
+  - name: no Math.random
+    regex: 'Math\.random\('
+    in: file:src/session.js
+    not: true
+  - name: ids from the Web Crypto or node:crypto CSPRNG
+    regex: 'getRandomValues\(|randomBytes\(|randomUUID\('
+    in: file:src/session.js
+  - name: no shell command string
+    regex: '\bexec(Sync)?\b|shell\s*:\s*true'
+    in: file:src/archive.js
+    not: true
+  - name: execFile or spawn with an argument array
+    regex: '\b(execFile|spawn)(Sync)?\b'
+    in: file:src/archive.js
+  - name: tests cover the pollution fix
+    run: grep -rqE '__proto__|constructor' test

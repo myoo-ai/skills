@@ -1,0 +1,51 @@
+description: fixes leaked files, swallowed errors and thread-unsafe date parsing in a Java invoice parser on JDK 25
+tags: [java, bugfix]
+skills: [java-best-practices]
+requires: [javac]
+prompt: |
+  Our invoice import (src/com/example/invoices, JDK 25, plain javac, see README.md) has
+  three problems in production:
+
+  - After a few hours the importer dies with "Too many open files". It parses thousands
+    of supplier files a night and some of them are broken.
+  - Broken files silently import as zero invoices, and a date like 2026-02-30 is
+    accepted as March 2nd. InvoiceParser.parse should throw a new checked
+    InvoiceParseException for a bad line instead, with the file name and line number in
+    the message and the underlying error attached. I/O errors such as a missing file
+    should come out as IOException.
+  - We now call InvoiceParser.parse from several threads at once, and sometimes get
+    wrong dates back.
+
+  Please also get rid of the old date API: Invoice should expose number(), issued() as a
+  LocalDate and amountCents(). Keep parse(Path) and the file format, update Main, and
+  keep it compiling with `javac -Xlint:all -Werror`.
+graders:
+  - name: skill loaded
+    skill: java-best-practices
+  - name: compiles with -Xlint:all -Werror
+    run: |
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -Xlint:all -Werror -d "$t/out" $(find src -name '*.java')
+    timeout: 3m
+  - name: files closed, bad lines rejected with context, thread-safe dates
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      javac -cp "$t/out" -d "$t/out" ../eval/InvoiceCheck.java
+      java -XX:+UseSerialGC -Xmn256m -Djava.io.tmpdir="$t" -cp "$t/out" InvoiceCheck
+    timeout: 3m
+  - name: Main still sums the sample file
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      java -cp "$t/out" com.example.invoices.Main data/acme-2026-11.txt | grep -qx '3 invoices, 1307.29 EUR'
+    timeout: 3m
+  - name: no java.util.Date, Calendar or SimpleDateFormat
+    run: '! grep -rnE ''java\.util\.(Date|Calendar)|SimpleDateFormat|\bnew Date\('' src'
+  - name: parser uses try-with-resources
+    regex: 'try\s*\(\s*(final\s+)?(var|BufferedReader|Reader|Stream<String>|Scanner|InputStream\w*|\w*Reader)\s+\w+\s*='
+    in: file:src/com/example/invoices/InvoiceParser.java
+  - name: no broad catch or printStackTrace
+    run: '! grep -rnE ''catch \((final )?(Exception|Throwable|RuntimeException) |printStackTrace'' src'

@@ -1,0 +1,14 @@
+{
+  "name": "billing-client",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Client for the billing.example.com API",
+  "exports": "./src/billing-client.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

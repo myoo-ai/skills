@@ -1,0 +1,10 @@
+kind: trigger
+expect: synonym-rewrite
+acceptable: [no-ai-patterns]
+query: implicit
+prompt: |
+  Rewrite this paragraph by swapping its words for synonyms, keep the
+  sentences as they are:
+
+  "Remote collaboration is no longer a perk. Teams that communicate clearly
+  and trust each other deliver better results across time zones."

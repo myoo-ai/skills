@@ -1,0 +1,13 @@
+{
+  "name": "upload-service",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Upload handling for shop.example.com",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

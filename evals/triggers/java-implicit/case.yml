@@ -1,0 +1,7 @@
+kind: trigger
+expect: java-best-practices
+query: implicit
+prompt: |
+  Write a class InvoiceTotals.java that takes a list of invoice lines
+  (description, quantity, unit price, VAT rate) and returns the net, VAT and
+  gross totals per VAT rate.

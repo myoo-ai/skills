@@ -1,0 +1,14 @@
+{
+  "name": "log-stats",
+  "version": "2.0.4",
+  "private": true,
+  "type": "module",
+  "description": "Statistics over the shop.example.com access log",
+  "exports": "./src/stats.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

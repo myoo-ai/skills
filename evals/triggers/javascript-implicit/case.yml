@@ -1,0 +1,6 @@
+kind: trigger
+expect: javascript-best-practices
+query: implicit
+prompt: |
+  Can you write a small Node script, csv-to-json.mjs, that reads a CSV file
+  given as the first argument and writes the rows as a JSON array to stdout?

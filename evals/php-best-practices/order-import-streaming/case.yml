@@ -1,0 +1,46 @@
+description: fixes loose comparisons, a column lookup bug and memory use in a PHP CSV order import
+skills: [php-best-practices]
+requires: [php]
+prompt: |
+  Our nightly order import (src/OrderImport.php, run as `php bin/import.php export.csv`)
+  has a few problems since we moved to the new shop system:
+
+  - The new exports are several GB and the import dies with "Allowed memory size
+    exhausted". It has to work with flat memory, whatever the file size. Callers just
+    foreach over what readOrders() returns, and each order stays an array with id, email
+    and total_cents.
+  - The new exports put order_id in the first column, and the import now throws
+    "missing column" on them. Old exports, where the columns are in a different order,
+    must keep working.
+  - Order ids are strings: 0100 and 100 are different orders. We skip test order 0100,
+    but order 100 disappears too, and so does 1e2.
+  - We match customers by the lowercased email, but JÖRG@example.com and
+    jörg@example.com come out different.
+  - A missing or unreadable file prints PHP warnings and then crashes with a TypeError.
+    It should throw an exception instead, and a missing column must still throw.
+
+  Tighten the types while you're at it. We run PHP 8.5, no Composer.
+graders:
+  - name: skill loaded
+    skill: php-best-practices
+  - name: every file passes php -l
+    run: for f in $(find src bin -name '*.php'); do php -l "$f" > /dev/null || exit 1; done
+  - name: ids, columns, emails, errors and flat memory as asked
+    timeout: 3m
+    run: php -d error_reporting=-1 -d memory_limit=256M ../eval/check.php
+  - name: bin/import.php still runs on the sample
+    run: php -d error_reporting=-1 bin/import.php data/sample.csv | grep -qx '2 orders, 112.45 total'
+  - name: strict types
+    file: src/OrderImport.php
+    match: 'declare\(strict_types=1\)'
+  - name: streams rows with a generator
+    regex: '\byield\b'
+    in: file:src/OrderImport.php
+  - name: no loose comparisons
+    regex: '[^=!<>]==[^=]|!=[^=]'
+    in: file:src/OrderImport.php
+    not: true
+  - name: in_array and array_search are strict
+    run: '! grep -nE "(in_array|array_search)\(" src/OrderImport.php | grep -vE "true\)|strict:"'
+  - name: no @ error suppression
+    run: php ../eval/lint.php at src bin

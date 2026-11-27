@@ -1,0 +1,32 @@
+description: the translate method round-trips a Dutch text through another language back into Dutch and keeps its structure
+skills: [translation-rewrite]
+prompt: |
+  Kun je tekst.md minder als AI laten klinken met de vertaalmethode? De tekst
+  moet Nederlands blijven, en de koppen en de lengte moeten ongeveer hetzelfde
+  blijven. Pas het bestand direct aan.
+graders:
+  - name: tekst.md was rewritten
+    file: tekst.md
+    changed: true
+  - name: reworded (at least 10 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh tekst.md 10
+  - name: still Dutch (at least 70 % of the original's Dutch function words)
+    run: c() { grep -oiwE 'de|het|een|en|van|je|niet|met|voor|op' "$1" | wc -l; }; n=$(c tekst.md); o=$(c ../original/tekst.md); test $((n * 10)) -ge $((o * 7))
+  - name: not left in English
+    regex: '(?i)\b(the|and|with|of|your)\b'
+    in: file:tekst.md
+    max: 2
+  - name: keeps the headings
+    run: test "$(grep -c '^#' tekst.md)" -eq "$(grep -c '^#' ../original/tekst.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < tekst.md); o=$(wc -w < ../original/tekst.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: translated into another language
+    judge: The transcript contains a translation of a substantial part of the text from tekst.md into a language other than Dutch.
+    in: transcript
+  - name: round trip through Esperanto
+    regex: '\b(kaj|estas|povas)\b'
+    in: transcript
+    min: 5
+    dimension: process
+  - name: skill loaded
+    skill: translation-rewrite

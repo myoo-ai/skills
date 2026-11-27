@@ -1,0 +1,59 @@
+description: modernizes legacy PHP classes to PHP 8.5 with enums, readonly and strict types
+skills: [php-best-practices]
+requires: [php]
+prompt: |
+  src/ in this repo is PHP 5-era code, and `php bin/demo.php` now prints a deprecation
+  notice. Please modernize the billing classes to current PHP for 8.5. That is what
+  production runs, so nothing that needs PHP 8.6. There is no Composer here,
+  src/autoload.php loads the classes.
+
+  - Native types on every property, parameter and return value, and no silent type
+    juggling.
+  - Replace the STATUS_* constants with a proper type `Example\Billing\InvoiceStatus`
+    in src/InvoiceStatus.php: Draft, Sent, Paid and Void, stored as draft, sent, paid
+    and void, so that `InvoiceStatus::from('paid')`, `->value` and
+    `InvoiceStatus::cases()` work, plus a `label()` method.
+    The Invoice constructor (still defaulting to draft), `getStatus()` and
+    `setStatus()` work with it;
+    `Invoice::fromArray()` still takes the stored string and must throw on an
+    unknown status. Keep `statusLabel()`, `isPayable()` and `totalCents()`.
+  - Make `LineItem` an immutable value object with public properties `sku`,
+    `description`, `unitPriceCents` and `quantity` (default 1) instead of getters,
+    still rejecting a quantity below 1 with an InvalidArgumentException.
+  - Update bin/demo.php to match. Its output must stay exactly the same, without
+    any notices.
+graders:
+  - name: skill loaded
+    skill: php-best-practices
+  - name: every file passes php -l
+    run: for f in $(find src bin -name '*.php'); do php -l "$f" > /dev/null || exit 1; done
+  - name: strict types in every file
+    run: for f in $(find src bin -name '*.php'); do grep -q 'declare(strict_types=1)' "$f" || { echo "missing in $f"; exit 1; }; done
+  - name: enum, readonly line items and invoice behavior
+    timeout: 2m
+    run: |
+      php -d error_reporting=-1 ../eval/check.php
+  - name: demo output unchanged and free of notices
+    timeout: 2m
+    run: |
+      d=$(mktemp -d "$TMPDIR/grader.XXXXXX")
+      php -d error_reporting=-1 -d display_errors=stderr -d log_errors=0 bin/demo.php > "$d/got" 2> "$d/err" || exit 1
+      diff ../eval/want "$d/got" && ! test -s "$d/err"
+  - name: string-backed InvoiceStatus enum file
+    file: src/InvoiceStatus.php
+    match: 'enum\s+InvoiceStatus\s*:\s*string'
+  - name: match instead of switch
+    run: grep -rqE 'match[[:space:]]*\(' src && ! grep -rqE 'switch[[:space:]]*\(' src
+  - name: no array callables
+    regex: '(array\(\s*\$this\s*,|\[\s*\$this\s*,\s*[''"])'
+    in: file:src/Invoice.php
+    not: true
+  - name: Override attribute on jsonSerialize
+    regex: '#\[\\?Override\]\s*(#\[[^\]]*\]\s*)*public\s+function\s+jsonSerialize'
+    in: file:src/Invoice.php
+  - name: Invoice is final
+    regex: '(final\s+(readonly\s+)?|readonly\s+final\s+)class\s+Invoice\b'
+    in: file:src/Invoice.php
+  - name: LineItem uses constructor promotion
+    regex: '__construct\(\s*(public|protected|private|readonly)\b'
+    in: file:src/LineItem.php

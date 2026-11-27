@@ -1,0 +1,40 @@
+description: removes needless allocation from a Rust text helper so clean input is returned without copying
+skills: [rust-best-practices]
+prompt: |
+  textnorm's normalize_whitespace and normalize_all (src/lib.rs) sit at the
+  top of our allocation profile in the search indexer. Almost every string
+  we pass is already normalized, yet each call copies it, and callers that
+  only have a &str (most of them) first have to build a String just to call
+  it. We also want to call normalize_all on arrays and slices, not only on
+  a Vec. The small textnorm binary (src/main.rs) is slow on big files too.
+
+  Make all of this cheap without changing the output. Updating callers for
+  a changed signature is fine. Rust 1.100 is installed, the crate is
+  edition 2024 with rust-version 1.88, no dependencies (there is no network
+  access). cargo fmt, cargo clippy --all-targets -- -D warnings and
+  cargo test must be clean.
+requires: [cargo]
+graders:
+  - name: skill loaded
+    skill: rust-best-practices
+  - name: fmt, clippy and tests pass
+    run: cargo fmt --check && cargo clippy --offline --all-targets -- -D warnings && cargo test --offline
+    timeout: 5m
+  - name: output unchanged, borrowed arguments accepted
+    timeout: 5m
+    run: |
+      mkdir -p tests && cp ../eval/zz_grader.rs tests/ && cargo test --offline --test zz_grader -- grader_same_output
+  - name: clean input returned without copying
+    timeout: 5m
+    run: |
+      mkdir -p tests && cp ../eval/zz_grader.rs tests/ && cargo test --offline --test zz_grader -- grader_clean_input_not_copied
+  - name: returns Cow
+    regex: 'Cow<'
+    in: file:src/lib.rs
+  - name: no &String or &Vec parameters
+    regex: ':\s*&(mut\s+)?(String|Vec<)'
+    in: file:src/lib.rs
+    not: true
+  - name: binary locks or buffers stdout once
+    regex: '(?s)stdout\(\).*\.lock\(\)|BufWriter'
+    in: file:src/main.rs

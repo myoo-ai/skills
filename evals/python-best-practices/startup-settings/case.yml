@@ -1,0 +1,50 @@
+description: fixes a missing-default bug, a mutable defaults table and slow CLI startup with Python 3.15 sentinel, frozendict and lazy imports
+skills: [python-best-practices]
+requires: [python3]
+prompt: |
+  Three complaints about our appcfg package (Python 3.15 only, see
+  pyproject.toml; 3.15.1 is installed as python3):
+
+  1. `get_setting("colour")` silently returns None for a setting that does
+     not exist. Without a default it must raise KeyError, while an explicit
+     `get_setting("colour", None)` must still return None.
+  2. A plugin did `DEFAULTS["timeout"] = 0` at runtime and broke every
+     worker. Make DEFAULTS impossible to change at runtime; code that reads
+     it like a dict must keep working.
+  3. `python3 -m appcfg get timeout` takes over half a second because the
+     report module is loaded at startup even though only `appcfg report`
+     needs it. Make the other commands start fast, but keep all imports at
+     the top of the modules where we can see them.
+
+  Stay stdlib-only and keep `python3 -X dev -W error -m unittest` green; add
+  tests for the new get_setting behavior.
+graders:
+  - name: skill loaded
+    skill: python-best-practices
+  - name: tests pass in dev mode with warnings as errors
+    run: python3 -X dev -W error -m unittest
+    timeout: 3m
+  - name: missing settings, read-only defaults and fast startup behave
+    timeout: 3m
+    run: |
+      cp ../eval/test_zz_grader.py tests/ && python3 -X dev -W error -m unittest tests.test_zz_grader
+  - name: report import is lazy at module top level
+    regex: '(?m)^lazy (from appcfg import report|import appcfg\.report|from appcfg\.report import|from \. import report|from \.report import)'
+    in: file:appcfg/cli.py
+  - name: no imports moved into functions
+    regex: '(?m)^[ \t]+(import|from \S+ import) '
+    in: file:appcfg/cli.py
+    not: true
+  - name: sentinel for the missing default
+    regex: '\bsentinel\('
+    in: file:appcfg/settings.py
+  - name: no object() marker
+    regex: '\bobject\(\)'
+    in: file:appcfg/settings.py
+    not: true
+  - name: DEFAULTS is a frozendict
+    regex: '(?m)^DEFAULTS\b.*=\s*frozendict\('
+    in: file:appcfg/settings.py
+  - name: missing-default tests added
+    regex: '(?is)raises\(\s*KeyError.*get_setting\('
+    in: file:tests/test_settings.py

@@ -1,0 +1,14 @@
+{
+  "name": "archiver",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Compresses nightly exports for archiving",
+  "exports": "./src/compress.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

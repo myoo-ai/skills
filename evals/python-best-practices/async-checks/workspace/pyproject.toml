@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "probes"
+version = "1.2.0"
+description = "Health probes for example.com services"
+requires-python = ">=3.12"
+dependencies = []

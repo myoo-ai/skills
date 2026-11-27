@@ -1,0 +1,25 @@
+description: the synonym method rewrites a speaker bio but leaves the names of people, companies, places and talks alone
+skills: [synonym-rewrite]
+requires: [myoo]
+prompt: |
+  my speaker bio in bio.md sounds AI-written. Can you run it through the
+  synonym method? Names of people, companies, places, events and talks have to
+  stay exactly as they are. Edit bio.md in place.
+graders:
+  - name: bio.md was rewritten
+    file: bio.md
+    changed: true
+  - name: words were swapped (at least 25 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh bio.md 25
+  - name: keeps every name letter for letter
+    run: sh ../eval/names.sh bio.md
+  - name: keeps the paragraphs
+    run: test "$(grep -c . bio.md)" -eq "$(grep -c . ../original/bio.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < bio.md); o=$(wc -w < ../original/bio.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: used myoo synonym_rewrite
+    regex: 'synonym_rewrite'
+    in: tools
+    dimension: process
+  - name: skill loaded
+    skill: synonym-rewrite

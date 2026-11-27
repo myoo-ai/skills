@@ -1,0 +1,42 @@
+description: adds timeouts, cancellation and HTTP error handling to a fetch client
+skills: [javascript-best-practices]
+requires: [node]
+prompt: |
+  Our billing client (src/billing-client.js) caused two incidents this month: when
+  billing.example.com stalls, `getInvoice` and `getCustomer` hang forever, and on a
+  404 or 500 they happily return the error body as if it were data. Please fix both
+  functions. We run Node.js 26 with ES modules and want no new dependencies.
+
+  - Both take an optional second argument `{ signal, timeoutMs }`. Callers can cancel
+    a request with their own AbortSignal, and every request times out after
+    `timeoutMs` milliseconds (default 5000), even when the caller passes a signal.
+    Use what the platform offers rather than hand-rolled timer bookkeeping.
+  - A non-2xx response rejects with an `HttpError` exported from
+    src/billing-client.js, an Error subclass whose `name` is 'HttpError' and that
+    has the numeric HTTP `status`.
+  - A network failure rejects with an Error that keeps the original failure as its
+    `cause`.
+  - Add node:test tests for the new behavior (mock fetch, never hit the network) and
+    keep `npm test` green.
+graders:
+  - name: skill loaded
+    skill: javascript-best-practices
+  - name: tests pass
+    run: node --test
+    timeout: 3m
+  - name: timeout, cancellation, HttpError and cause behave
+    timeout: 3m
+    run: |
+      node --test ../eval/g.test.mjs
+  - name: tests cover the new behavior
+    run: grep -rq HttpError test && grep -rqE 'timeoutMs|AbortController|abort' test
+  - name: uses AbortSignal.timeout
+    regex: 'AbortSignal\.timeout\('
+    in: file:src/billing-client.js
+  - name: uses AbortSignal.any
+    regex: 'AbortSignal\.any\('
+    in: file:src/billing-client.js
+  - name: no hand-rolled timer
+    regex: '\bsetTimeout\('
+    in: file:src/billing-client.js
+    not: true

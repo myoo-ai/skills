@@ -1,0 +1,86 @@
+description: modernizes a pre-generics Go package and its tests to Go 1.27 idioms without changing behavior
+skills: [go-best-practices]
+prompt: |
+  The stock package in this repo was written years ago. Please modernize
+  stock/stock.go and stock/stock_test.go to current Go 1.27 idioms and
+  standard library APIs, tests and benchmarks included. go.mod declares
+  go 1.27 and Go 1.27.4 is installed.
+
+  Keep the exported API and behavior exactly the same and stay stdlib-only.
+  gofmt, go vet ./... and go test ./... must be clean.
+graders:
+  - name: skill loaded
+    skill: go-best-practices
+  - name: vet and tests pass
+    run: go vet ./... && go test ./...
+    timeout: 3m
+  - name: gofmt clean
+    run: test -z "$(gofmt -l .)"
+  - name: behavior unchanged
+    timeout: 3m
+    run: |
+      cp ../eval/zz_grader_test.go stock/ && go test -run TestGraderBehavior ./stock
+  - name: no io/ioutil
+    regex: 'ioutil'
+    in: file:stock/stock.go
+    not: true
+  - name: no io/ioutil in tests
+    regex: 'ioutil'
+    in: file:stock/stock_test.go
+    not: true
+  - name: any instead of interface{}
+    regex: 'interface\{\}'
+    in: file:stock/stock.go
+    not: true
+  - name: no sort package helpers
+    regex: 'sort\.(Slice|SliceStable|Strings|Ints)\('
+    in: file:stock/stock.go
+    not: true
+  - name: errors.AsType instead of errors.As
+    regex: 'errors\.AsType\['
+    in: file:stock/stock.go
+  - name: no errors.As with target variable
+    regex: 'errors\.As\('
+    in: file:stock/stock.go
+    not: true
+  - name: no zero-based three-clause loops
+    regex: 'for \w+ := 0; '
+    in: file:stock/stock.go
+    not: true
+  - name: no zero-based three-clause loops in tests
+    regex: 'for \w+ := 0; '
+    in: file:stock/stock_test.go
+    not: true
+  - name: WaitGroup.Go
+    regex: '\.Go\(func'
+    in: file:stock/stock.go
+  - name: no WaitGroup.Add
+    regex: '\.Add\(1\)'
+    in: file:stock/stock.go
+    not: true
+  - name: no loop variable copies
+    regex: 'i, it := i, it'
+    in: file:stock/stock.go
+    not: true
+  - name: min and max built-ins
+    regex: '(?s)\bmin\(.*\bmax\(|\bmax\(.*\bmin\('
+    in: file:stock/stock.go
+  - name: map keys through maps.Keys
+    regex: 'maps\.Keys\('
+    in: file:stock/stock.go
+  - name: slices search helper
+    regex: 'slices\.(ContainsFunc|IndexFunc)\('
+    in: file:stock/stock.go
+  - name: strings.Cut instead of Index and slicing
+    regex: 'strings\.Cut\('
+    in: file:stock/stock.go
+  - name: t.TempDir in tests
+    regex: 't\.TempDir\(\)'
+    in: file:stock/stock_test.go
+  - name: b.Loop benchmark
+    regex: 'for b\.Loop\(\)'
+    in: file:stock/stock_test.go
+  - name: no b.N loop
+    regex: 'b\.N\b|ResetTimer'
+    in: file:stock/stock_test.go
+    not: true

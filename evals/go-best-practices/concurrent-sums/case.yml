@@ -1,0 +1,55 @@
+description: adds a bounded concurrent checksum function with tests and a benchmark using Go 1.27 concurrency and testing APIs
+skills: [go-best-practices]
+prompt: |
+  Add a concurrent variant of Sum to filesum.go.
+
+  - Hash the files concurrently with at most `workers` goroutines at a time
+    (workers below 1 means 1).
+  - Return the results of the files that succeeded, sorted by path.
+  - When files fail, also return all their errors combined, so callers can
+    still match them with errors.Is (for example fs.ErrNotExist).
+  - Stop starting new work once ctx is canceled and report it, so
+    errors.Is(err, context.Canceled) holds.
+
+  Stdlib only, there is no network access (so no golang.org/x/sync). go.mod
+  declares go 1.27 and Go 1.27.4 is installed, so write it the way current
+  Go is written. Put table-driven tests and a benchmark for SumAll in
+  filesum_test.go. gofmt, go vet ./... and go test ./... must be clean.
+graders:
+  - name: skill loaded
+    skill: go-best-practices
+  - name: vet and tests pass
+    run: go vet ./... && go test ./...
+    timeout: 3m
+  - name: gofmt clean
+    run: test -z "$(gofmt -l .)"
+  - name: SumAll behaves as specified
+    timeout: 3m
+    run: |
+      cp ../eval/zz_grader_test.go . && go test -run TestGraderSumAll .
+  - name: WaitGroup.Go
+    regex: '\.Go\(func'
+    in: file:filesum.go
+  - name: no WaitGroup.Add and Done
+    regex: '\.Add\(1\)|defer \w+\.Done\(\)'
+    in: file:filesum.go
+    not: true
+  - name: errors combined with errors.Join
+    regex: 'errors\.Join\('
+    in: file:filesum.go
+  - name: tests use t.Context
+    regex: 't\.Context\(\)'
+    in: file:filesum_test.go
+  - name: benchmark for SumAll
+    regex: 'func Benchmark\w*\(b \*testing\.B\)'
+    in: file:filesum_test.go
+  - name: b.Loop benchmark
+    regex: 'for b\.Loop\(\)'
+    in: file:filesum_test.go
+  - name: no b.N loop
+    regex: 'b\.N\b|ResetTimer'
+    in: file:filesum_test.go
+    not: true
+  - name: table-driven subtests
+    regex: 't\.Run\('
+    in: file:filesum_test.go

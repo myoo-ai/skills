@@ -1,0 +1,6 @@
+kind: trigger
+expect: rust-best-practices
+query: implicit
+prompt: |
+  Write a function in src/lib.rs that parses durations like "1h30m" or "45s"
+  into a std::time::Duration and returns a proper error for bad input.

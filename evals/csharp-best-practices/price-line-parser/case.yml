@@ -1,0 +1,68 @@
+description: speeds up and fixes a culture-dependent C# price line parser on net9.0 (source-generated regex, Try parsing instead of exceptions, invariant number parsing, ordinal case-insensitive frozen lookup)
+tags: [csharp, performance, globalization, bugfix]
+skills: [csharp-best-practices]
+requires: [dotnet]
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+# The installed .NET 9 runtime keeps named mutexes under /tmp, which the sandbox
+# denies. NuGet's first-run migration takes one unless its marker exists, so
+# create the marker in the fresh HOME (run graders below do the same).
+setup: mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+prompt: |
+  Two problems with PriceLineParser (src/Pricing), which our price import service uses for
+  every line of the supplier price files. We build with the .NET 9 SDK (net9.0, C# 13), and
+  warnings are errors.
+
+  1. It's slow. The profiler shows most of the import time in the parser: setting up the
+     line pattern again for every line, and throwing and catching exceptions for rejected
+     lines (in some supplier files a third of the lines are comments or junk). Please make
+     it fast. The region table never changes while the service runs and is read for every line.
+  2. Our Istanbul office says that on their machines lines with region IN are rejected, and
+     prices come out a hundred times too high (9.99 becomes 999).
+
+  Keep the public API and the rules: region codes are case-insensitive, Parse throws a
+  FormatException for any line it rejects, TryParse returns false for exactly those lines,
+  ParseAll counts them. `dotnet run --project src/Pricing.Demo` must print, on any machine,
+  what it prints on an en-US machine today.
+graders:
+  - name: skill loaded
+    skill: csharp-best-practices
+  - name: builds with warnings as errors
+    run: |
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      dotnet build src/Pricing.Demo -m:1 -warnaserror
+    timeout: 5m
+  - name: demo prints the en-US output under a Turkish locale
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build src/Pricing.Demo -m:1 > "$t/build.log" || { tail -30 "$t/build.log"; exit 1; }
+      LANG=tr_TR.UTF-8 LC_ALL=tr_TR.UTF-8 dotnet run --project src/Pricing.Demo --no-build > "$t/got"
+      printf '%s\n' 'ABC-1001 Europe 12 x 9.99' 'ABC-1002 United States 1 x 120' 'XY-200 United Kingdom 6 x 0.4999' 'XY-202 Türkiye 2 x 3.50' 'ABC-1004 India 3 x 2.25' 'parsed 5, rejected 6' > "$t/want"
+      diff "$t/want" "$t/got"
+    timeout: 5m
+  - name: parses correctly under tr-TR and rejects lines without throwing internally
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build ../eval/parse -m:1 > "$t/build.log" || { grep -E 'error' "$t/build.log" | sort -u | head -20; exit 1; }
+      dotnet ../eval/parse/bin/Debug/net9.0/Check.dll
+    timeout: 5m
+  - name: pattern is a source-generated regex
+    file: src/Pricing/PriceLineParser.cs
+    match: '\[GeneratedRegex\('
+  - name: no regex built or interpreted at run time
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''new[[:space:]]+Regex[[:space:]]*\(|Regex\.(Match|IsMatch|Matches|Replace|Split)[[:space:]]*\('' src'
+  - name: region table is a frozen dictionary
+    file: src/Pricing/PriceLineParser.cs
+    match: '\bFrozenDictionary\b|\.ToFrozenDictionary\('
+  - name: region codes compared ordinal ignoring case
+    file: src/Pricing/PriceLineParser.cs
+    match: 'StringComparer\.OrdinalIgnoreCase|StringComparison\.OrdinalIgnoreCase'
+  - name: no culture-sensitive case conversion
+    regex: '\.To(Lower|Upper)\(\s*\)'
+    in: file:src/Pricing/PriceLineParser.cs
+    not: true

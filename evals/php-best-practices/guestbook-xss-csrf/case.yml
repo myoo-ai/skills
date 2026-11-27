@@ -1,0 +1,43 @@
+description: fixes stored XSS and cross-site form posts in a PHP guestbook
+skills: [php-best-practices]
+requires: [php]
+prompt: |
+  Our pentester sent two findings for the guestbook (src/CommentBoard.php, rendered by
+  public/guestbook.php):
+
+  1. A comment with `<script>` in it runs in every visitor's browser, and the website
+     field can break out of the link. Old comments that are already stored must be safe
+     too.
+  2. A page on another site can make a logged-in visitor's browser post comments to us
+     without them noticing.
+
+  Please fix both properly. `$session` in `renderForm()` and `handlePost()` is the
+  visitor's `$_SESSION`, passed by reference: renderForm must put whatever the form needs
+  into the form, and handlePost must return false (and store nothing) for any post that
+  did not come from a form we rendered for that same session. While you're at it, only
+  accept http and https websites (reject the post otherwise). Keep the public methods
+  and what they return, and tighten the types. We run PHP 8.5, no Composer.
+graders:
+  - name: skill loaded
+    skill: php-best-practices
+  - name: every file passes php -l
+    run: for f in $(find src public -name '*.php'); do php -l "$f" > /dev/null || exit 1; done
+  - name: output escaped, forged posts rejected, only http(s) websites
+    timeout: 2m
+    run: php -d error_reporting=-1 ../eval/check.php
+  - name: strict types
+    file: src/CommentBoard.php
+    match: 'declare\(strict_types=1\)'
+  - name: token from a CSPRNG
+    regex: 'random_bytes\(|Random\\Randomizer|getBytes\('
+    in: file:src/CommentBoard.php
+  - name: no weak randomness for the token
+    regex: '\b(rand|mt_rand|uniqid|lcg_value|microtime|str_shuffle)\s*\('
+    in: file:src/CommentBoard.php
+    not: true
+  - name: token compared in constant time
+    regex: 'hash_equals\('
+    in: file:src/CommentBoard.php
+  - name: htmlspecialchars with quotes escaped
+    regex: 'htmlspecialchars\([^;]*ENT_QUOTES'
+    in: file:src/CommentBoard.php

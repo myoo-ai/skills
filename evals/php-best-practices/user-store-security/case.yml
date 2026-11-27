@@ -1,0 +1,52 @@
+description: fixes SQL injection and md5 password storage in a PDO user store
+skills: [php-best-practices]
+requires: [php]
+prompt: |
+  Two bug reports about src/UserStore.php: searching for a customer called O'Brien
+  crashes with a PDO syntax error, and a pentest showed you can log in as another
+  user with an email like `' OR '1'='1' --`. Please fix UserStore properly.
+
+  While you are in there: passwords are still stored as unsalted md5. Switch to
+  PHP's built-in password hashing with the default algorithm, upgrade an existing
+  md5 hash transparently the next time that user logs in successfully (compare the
+  legacy hash in constant time), and also rehash whenever a stored hash is outdated
+  for the current default algorithm and cost.
+
+  Keep the public methods (`createSchema`, `register`, `login`, `search`) and what
+  they return, and tighten the types while you're at it. We run
+  PHP 8.5 with pdo_sqlite, and there is no Composer or PHPUnit in this repo: add a
+  plain PHP test script at tests/UserStoreTest.php that runs with
+  `php tests/UserStoreTest.php` against an in-memory SQLite database, covers the
+  bugs above, and exits non-zero when a check fails.
+graders:
+  - name: skill loaded
+    skill: php-best-practices
+  - name: every file passes php -l
+    run: for f in $(find src bin tests -name '*.php'); do php -l "$f" > /dev/null || exit 1; done
+  - name: injection-safe queries and password upgrade work
+    timeout: 2m
+    run: |
+      php -d error_reporting=-1 ../eval/check.php
+  - name: own test script passes and covers the bugs
+    timeout: 2m
+    run: php tests/UserStoreTest.php && grep -qi brien tests/UserStoreTest.php && grep -q md5 tests/UserStoreTest.php
+  - name: strict types
+    file: src/UserStore.php
+    match: 'declare\(strict_types=1\)'
+  - name: prepared statements
+    regex: '->prepare\('
+    in: file:src/UserStore.php
+  - name: no variables spliced into SQL
+    regex: '("[^"]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^"]*\$\w|\b(SELECT|INSERT|UPDATE|DELETE)\b[^;]*[''"]\s*\.\s*\$)'
+    in: file:src/UserStore.php
+    not: true
+  - name: password_hash with the default algorithm
+    regex: 'password_hash\([^;]*PASSWORD_DEFAULT'
+    in: file:src/UserStore.php
+  - name: legacy hash compared in constant time
+    regex: 'hash_equals\('
+    in: file:src/UserStore.php
+  - name: no empty catch
+    regex: 'catch\s*\([^)]*\)\s*\{\s*\}'
+    in: file:src/UserStore.php
+    not: true

@@ -1,0 +1,35 @@
+[
+  {
+    "id": "A-1001",
+    "customer": "ann@example.com",
+    "placedAt": "2026-10-02T09:15:00Z",
+    "lines": [{ "sku": "MUG-01", "priceCents": 1250, "qty": 2 }]
+  },
+  {
+    "id": "A-1002",
+    "customer": "bob@example.com",
+    "placedAt": "2026-10-05T14:40:00Z",
+    "lines": [
+      { "sku": "TEE-02", "priceCents": 1999, "qty": 1 },
+      { "sku": "CAP-03", "priceCents": 899, "qty": 2 }
+    ]
+  },
+  {
+    "id": "A-1003",
+    "customer": "ann@example.com",
+    "placedAt": "2026-10-11T08:05:00Z",
+    "lines": [{ "sku": "BAG-04", "priceCents": 3450, "qty": 1 }]
+  },
+  {
+    "id": "A-1004",
+    "customer": "cem@example.com",
+    "placedAt": "2026-10-03T19:30:00Z",
+    "lines": [{ "sku": "MUG-01", "priceCents": 1250, "qty": 1 }]
+  },
+  {
+    "id": "A-1005",
+    "customer": "bob@example.com",
+    "placedAt": "2026-10-09T11:00:00Z",
+    "lines": [{ "sku": "PEN-05", "priceCents": 299, "qty": 4 }]
+  }
+]

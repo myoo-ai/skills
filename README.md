@@ -108,15 +108,23 @@ npx skills update
 
 ## Evaluating agent outputs
 
-This repository's skills follows a modified version of [agentskills' evaluating skills guide](https://agentskills.io/skill-creation/evaluating-skills). The evaluation tests can be found in `<skill dir>/evals/evals.json` for each skill.
+The evals of this repository's skills run with [myoo-eval](https://github.com/myoo-ai/eval). The suite lives in [`evals/`](./evals): `evals/eval.yml` holds the settings, `evals/<skill>/<case>/case.yml` the task cases and `evals/triggers/` the cases that check which skill a request loads. Hidden tests and expected files for the graders sit in the case's `eval/` directory, which the agent never sees.
 
 The process is as follows:
 
-1. Every skill has recorded sample output of what the result should look like after using the skill.
-2. When evaluating a skill, we run the agent harness 2 times:
-    - with the skills that need to be tested
-    - without any skills (to test if the skill is needed at all or if without the skills the agent achieves acceptable outcomes)
-3. An independent ["skill grader"](./.agents/skills/skill-grader) model reviews the outputs and reports the deltas between the real and expected versions, in a single comprehensive report.
+1. Every task case gives the agent a request and a workspace, and graders check the result: files, commands, `myoo prose_lint` and toolchain runs, and a judge model where no command can decide. A run that fails its graders gets up to 3 tries in the same session.
+2. Every case runs in Claude Code and omp on Sonnet 5.5, inside a sandbox, in 2 arms:
+   - with the plugin installed
+   - without any skills (to test if the skill is needed at all or if without the skills the agent achieves acceptable outcomes)
+3. The report compares the arms per harness, gives a verdict on whether the skills improve the outcome, and lists what each arm cost.
+
+```bash
+myoo-eval check evals                              # validate the cases without running an agent
+myoo-eval run evals --case 'go-best-practices/*'   # run some cases
+myoo-eval show latest                              # transcripts and grades of the last run
+```
+
+Ask the agent to [grade a skill](./.agents/skills/skill-grader) for a summary of the latest results with suggestions.
 
 ## Releasing myoo-ai/skills
 

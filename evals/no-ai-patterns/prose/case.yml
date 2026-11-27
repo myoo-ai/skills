@@ -1,0 +1,33 @@
+description: an AI-written guide is rewritten to score under 10 % on prose_lint and keeps its advice
+skills: [no-ai-patterns]
+requires: [myoo]
+prompt: |
+  can you make prose.md sound less AI? Edit the file in place. When you're
+  done, `myoo prose_lint prose.md` should rate it under 10 % AI patterns. Keep
+  the actual advice (which channel to use for what, time zones, working hours,
+  the kinds of tools a team needs) and drop the emoji and the chatbot sign-off.
+graders:
+  - name: prose.md was rewritten
+    file: prose.md
+    changed: true
+  - name: prose_lint rates it under 10 %
+    run: myoo -nf prose_lint prose.md | awk '/AI patterns:/ {f=1; s=$(NF-1)+0} END {exit !(f && s < 10)}'
+  - name: keeps the time zone advice
+    regex: '(?i)time ?zones?'
+    in: file:prose.md
+  - name: keeps the working hours advice
+    regex: '(?i)working hours|work(ing)? too (much|long)|burn ?out'
+    in: file:prose.md
+  - name: keeps the channel advice
+    regex: '(?i)\bchat\b[\s\S]*\bemail\b|\bemail\b[\s\S]*\bchat\b'
+    in: file:prose.md
+  - name: no emoji
+    regex: '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]'
+    in: file:prose.md
+    not: true
+  - name: no chatbot sign-off
+    regex: '(?i)I hope this helps|let me know if'
+    in: file:prose.md
+    not: true
+  - name: skill loaded
+    skill: no-ai-patterns

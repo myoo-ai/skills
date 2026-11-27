@@ -1,0 +1,6 @@
+kind: trigger
+expect: python-best-practices
+query: implicit
+prompt: |
+  Write me a script, dedupe.py, that walks a directory, hashes every file and
+  prints groups of files with identical content, largest groups first.

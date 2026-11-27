@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dupfind"
+version = "0.9.2"
+description = "Finds duplicate files on the media share"
+requires-python = ">=3.15"
+dependencies = []

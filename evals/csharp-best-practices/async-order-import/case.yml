@@ -1,0 +1,80 @@
+description: turns a blocking C# CSV order importer into a cancellable async API on net9.0 (token flow, no sync-over-async, no captured context, guards, original exceptions)
+tags: [csharp, async, bugfix]
+skills: [csharp-best-practices]
+requires: [dotnet]
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+# The installed .NET 9 runtime keeps named mutexes under /tmp, which the sandbox
+# denies. NuGet's first-run migration takes one unless its marker exists, so
+# create the marker in the fresh HOME (run graders below do the same).
+setup: mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+prompt: |
+  OrderImporter.Import (src/OrderImport) blocks on the async validator with .Result and reads
+  the whole file into memory. The library is now used from our ASP.NET Core orders API and
+  from the WPF back-office tool, and we've had thread-pool starvation in the API and a frozen
+  UI in the tool. Please make the import properly async. We build with the .NET 9 SDK
+  (net9.0, C# 13), and warnings are errors.
+
+  - Replace Import with `Task<IReadOnlyList<Order>> ImportAsync(string path, CancellationToken cancellationToken = default)`
+    that reads the file line by line asynchronously instead of loading it all at once.
+  - Add a CancellationToken as the last parameter of IOrderValidator.ValidateAsync and pass
+    the token through to everything that accepts one, EmailDomainValidator's CRM call included.
+    Cancelling the token stops the import with an OperationCanceledException.
+  - Because the WPF tool calls it from the UI thread, the library's awaits must not resume on
+    the caller's synchronization context.
+  - Check the arguments up front: a null validator throws ArgumentNullException; a null,
+    empty or whitespace path throws ArgumentNullException or ArgumentException.
+  - The library must not write to the console. Errors reach the caller as the original
+    exception with its stack trace (a bad row is still a FormatException naming the line
+    number, a missing file a FileNotFoundException), not wrapped or swallowed.
+  - Update the demo (src/OrderImport.Demo) to the new API; `dotnet run --project src/OrderImport.Demo`
+    must print the same output as today.
+graders:
+  - name: skill loaded
+    skill: csharp-best-practices
+  - name: builds with warnings as errors
+    run: |
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      dotnet build src/OrderImport.Demo -m:1 -warnaserror
+    timeout: 5m
+  - name: demo output unchanged
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build src/OrderImport.Demo -m:1 > "$t/build.log" || { tail -30 "$t/build.log"; exit 1; }
+      dotnet run --project src/OrderImport.Demo --no-build > "$t/got"
+      printf '%s\n' '1001 alice@example.com 12.50' '1003 carol@example.org 99.99' '1004 dave@example.com 0.51' 'imported 3 orders, total 113.00' > "$t/want"
+      diff "$t/want" "$t/got"
+    timeout: 5m
+  - name: ImportAsync behaves as specified (tokens, cancellation, guards, errors, non-blocking)
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build ../eval/import -m:1 > "$t/build.log" || { grep -E 'error' "$t/build.log" | sort -u | head -20; exit 1; }
+      dotnet ../eval/import/bin/Debug/net9.0/Check.dll
+    timeout: 5m
+  - name: library awaits do not resume on the caller's synchronization context
+    run: |
+      set -e
+      mkdir -p "$HOME/.local/share/NuGet/Migrations" && touch "$HOME/.local/share/NuGet/Migrations/1"
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      dotnet build ../eval/context -m:1 > "$t/build.log" || { grep -E 'error' "$t/build.log" | sort -u | head -20; exit 1; }
+      dotnet ../eval/context/bin/Debug/net9.0/Check.dll
+    timeout: 5m
+  - name: no blocking on tasks anywhere
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''\.Result\b|\.Wait\(|GetAwaiter\(\)\.GetResult\('' src'
+  - name: library does not write to the console
+    run: '! grep -rn --include=*.cs --exclude-dir=obj --exclude-dir=bin ''Console\.'' src/OrderImport'
+  - name: no catch-all Exception handler without a filter in the library
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''catch[[:space:]]*\([[:space:]]*Exception([[:space:]]+[A-Za-z_][A-Za-z0-9_]*)?[[:space:]]*\)[[:space:]]*(\{|$)'' src/OrderImport'
+  - name: no rethrow by name
+    run: '! grep -rnE --include=*.cs --exclude-dir=obj --exclude-dir=bin ''throw[[:space:]]+[a-z][A-Za-z0-9_]*[[:space:]]*;'' src'
+  - name: path checked with ArgumentException.ThrowIfNullOrWhiteSpace
+    file: src/OrderImport/OrderImporter.cs
+    match: 'ArgumentException\.ThrowIfNullOrWhiteSpace\('
+  - name: ImportAsync takes a defaulted CancellationToken
+    file: src/OrderImport/OrderImporter.cs
+    match: 'ImportAsync\(\s*string\s+\w+\s*,\s*CancellationToken\s+\w+\s*=\s*default\s*\)'

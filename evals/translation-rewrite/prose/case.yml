@@ -1,0 +1,31 @@
+description: the translate method round-trips the text through another language and keeps its structure
+skills: [translation-rewrite]
+prompt: |
+  can you make prose.md sound less AI using the translate method? Translate it
+  into another language and back into English, then put the English result in
+  prose.md, keeping the 10 headings and roughly the same length.
+graders:
+  - name: prose.md was rewritten
+    file: prose.md
+    changed: true
+  - name: result is English
+    regex: '(?i)\b(the|and)\b'
+    in: file:prose.md
+    min: 30
+  - name: keeps the headings
+    run: test "$(grep -c '^#' prose.md)" -eq "$(grep -c '^#' ../original/prose.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < prose.md); o=$(wc -w < ../original/prose.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: translated into another language
+    judge: The transcript contains a translation of a substantial part of the text from prose.md into a language other than English.
+    in: transcript
+  - name: round trip through Esperanto
+    regex: '\b(kaj|estas|ĉiu|teamo)\b'
+    in: transcript
+    min: 5
+    dimension: process
+  - name: tells what the method can't do
+    judge: The reply warns that the round trip keeps the sentence structure or may still read as AI-written, or suggests another way to make the text read less like AI.
+    dimension: process
+  - name: skill loaded
+    skill: translation-rewrite

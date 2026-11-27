@@ -1,0 +1,52 @@
+description: fixes shell, SQL and pickle injection, weak tokens and unsafe tar extraction in an upload worker on a Python 3.12 floor
+skills: [python-best-practices]
+requires: [python3]
+prompt: |
+  A pentest flagged uploads/processor.py, the helper module of our upload
+  worker. Uploaded archives, file names, e-mail addresses and the job state
+  the browser sends back are all customer-controlled. Please fix every
+  security problem in the module.
+
+  Keep the public functions and what they return for normal input (tokens
+  stay 32 letters and digits by default, the saved state still round-trips).
+  The package supports Python 3.12+ (requires-python in pyproject.toml) and
+  must keep doing so; Python 3.15.1 is what is installed here. Stay
+  stdlib-only. The tests must pass with `python3 -X dev -W error -m unittest`.
+graders:
+  - name: skill loaded
+    skill: python-best-practices
+  - name: tests pass in dev mode with warnings as errors
+    run: python3 -X dev -W error -m unittest
+    timeout: 3m
+  - name: injection, tokens, tar and state are safe
+    timeout: 3m
+    run: |
+      cp ../eval/test_zz_grader.py tests/ && python3 -X dev -W error -m unittest tests.test_zz_grader
+  - name: Python 3.12 floor kept
+    regex: 'requires-python\s*=\s*">=\s*3\.12"'
+    in: file:pyproject.toml
+  - name: no shell=True
+    regex: 'shell\s*=\s*True'
+    in: file:uploads/processor.py
+    not: true
+  - name: no pickle
+    regex: '\bpickle\b'
+    in: file:uploads/processor.py
+    not: true
+  - name: tokens from secrets
+    regex: '\bsecrets\b'
+    in: file:uploads/processor.py
+  - name: no random module
+    regex: '(?m)^\s*(import random|from random import)'
+    in: file:uploads/processor.py
+    not: true
+  - name: tar extraction filter set for the 3.12 floor
+    regex: 'filter\s*=\s*["'']data["'']'
+    in: file:uploads/processor.py
+  - name: tarball opened with a context manager
+    regex: 'with tarfile\.open\('
+    in: file:uploads/processor.py
+  - name: no string-built SQL
+    regex: '(?s)execute\(\s*f["'']|execute\([^)]*["'']\s*%|execute\([^)]*\.format\('
+    in: file:uploads/processor.py
+    not: true

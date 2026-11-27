@@ -1,0 +1,11 @@
+kind: trigger
+expect: no-ai-patterns
+acceptable: [synonym-rewrite, translation-rewrite]
+query: implicit
+prompt: |
+  This announcement for our newsletter sounds like ChatGPT wrote it. Can you
+  rework it so it reads like one of us wrote it?
+
+  "We're thrilled to announce that Fernpost now supports scheduled webhooks!
+  This powerful new feature seamlessly empowers teams to unlock their full
+  potential — it's not just an update, it's a game-changer."

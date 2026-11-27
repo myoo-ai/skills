@@ -1,0 +1,42 @@
+description: an AI-sounding product page is rewritten without lint violations, unsourced claims or hype and keeps every spec, price and warranty term
+skills: [no-ai-patterns]
+requires: [myoo]
+prompt: |
+  product.md is the copy for our standing desk page and it sounds like every
+  other AI-written shop page. Rewrite it in place so it reads like someone who
+  knows the desk wrote it. All the specs, the price, the delivery time and the
+  warranty terms have to stay. `myoo prose_lint product.md` should report no
+  violations and a lower AI score than it gives the current text.
+graders:
+  - name: product.md was rewritten
+    file: product.md
+    changed: true
+  - name: no prose_lint violations
+    run: myoo -nf prose_lint product.md > /dev/null
+  - name: scores below the original
+    run: score() { myoo -nf prose_lint "$1" | awk '/AI patterns:/ {f=1; s=$(NF-1)+0} END {if (!f) exit 1; print s}'; }; o=$(score ../original/product.md) && n=$(score product.md) && awk -v n="$n" -v o="$o" 'BEGIN {exit !(n < o)}'
+  - name: keeps every number
+    run: sh ../eval/numbers.sh product.md
+  - name: keeps the 4 memory presets
+    regex: '(?i)\b(4|four)\b[^.\n]{0,40}presets?'
+    in: file:product.md
+  - name: keeps the oak tabletop
+    regex: '(?i)\boak\b'
+    in: file:product.md
+  - name: keeps the collision detection
+    regex: '(?i)collision'
+    in: file:product.md
+  - name: no unsourced study claim
+    regex: '(?i)studies (show|suggest|have shown)|research shows|experts'
+    in: file:product.md
+    not: true
+  - name: no hype words
+    regex: '(?i)\b(elevate|seamless(ly)?|cutting-edge|meticulously|unparalleled|unmatched|effortless(ly)?|whisper-quiet|rock-solid)\b'
+    in: file:product.md
+    not: true
+  - name: no emoji
+    regex: '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]'
+    in: file:product.md
+    not: true
+  - name: skill loaded
+    skill: no-ai-patterns

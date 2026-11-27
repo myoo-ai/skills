@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uploads"
+version = "2.3.1"
+description = "Processes customer uploads for shop.example.com"
+requires-python = ">=3.12"
+dependencies = []

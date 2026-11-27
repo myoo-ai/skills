@@ -1,0 +1,7 @@
+description: Kotlin is close to Java but not covered by the Java skill
+kind: trigger
+expect: none
+query: near_miss
+prompt: |
+  How do I turn this Kotlin class into a data class with a copy() that
+  validates the email field? class User(val name: String, val email: String)

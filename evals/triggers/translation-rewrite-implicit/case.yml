@@ -1,0 +1,10 @@
+kind: trigger
+expect: translation-rewrite
+acceptable: [no-ai-patterns]
+query: implicit
+prompt: |
+  Run this paragraph through Esperanto and back to English so the AI
+  watermarks wash out:
+
+  "In today's fast-paced digital landscape, remote work is no longer a perk.
+  Companies of every size are embracing distributed teams."

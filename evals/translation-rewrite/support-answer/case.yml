@@ -1,0 +1,34 @@
+description: the translate method round-trips a support answer, the way back done by a fresh subagent, and keeps the order facts
+skills: [translation-rewrite]
+prompt: |
+  answer.md is a support answer that sounds way too much like AI. Run it
+  through the translation round trip and put the result back in answer.md.
+  The order number, the courier reference, the dates, the amount and the names
+  must stay.
+graders:
+  - name: answer.md was rewritten
+    file: answer.md
+    changed: true
+  - name: reworded (at least 10 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh answer.md 10
+  - name: result is English (at least 70 % of the original's English function words)
+    run: c() { grep -oiwE 'the|and|to|of|you|is' "$1" | wc -l; }; n=$(c answer.md); o=$(c ../original/answer.md); test $((n * 10)) -ge $((o * 7))
+  - name: keeps every number
+    run: sh ../eval/numbers.sh answer.md
+  - name: keeps the courier reference
+    contains: 'DX-4471-B'
+    in: file:answer.md
+  - name: keeps the names
+    regex: 'Okafor[\s\S]*Sophie Hale'
+    in: file:answer.md
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < answer.md); o=$(wc -w < ../original/answer.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: translated into another language
+    judge: The transcript contains a translation of a substantial part of answer.md into a language other than English.
+    in: transcript
+  - name: back translation by a subagent with the skill's prompt
+    regex: '(?i)translate the following text from[\W_]{1,4}esperanto[\W_]{1,4}into[\W_]{1,4}english'
+    in: tools
+    dimension: process
+  - name: skill loaded
+    skill: translation-rewrite

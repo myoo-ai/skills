@@ -1,0 +1,4 @@
+shop,order_id,email,total
+nl,0099,Ann@Example.com,12.50
+nl,0100,test@example.com,1.00
+de,0101,bob@example.com,99.95

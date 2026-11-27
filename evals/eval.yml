@@ -1,0 +1,24 @@
+# https://github.com/myoo-ai/eval
+# run from repo root: `myoo-eval run evals`
+name: myoo-skills
+install:
+  plugin: ..
+arms: [with, none]
+runs: 3
+timeout: 10m
+max_turns: 40
+max_cost: 30
+sandbox:
+  read: [~/bin, ~/go/bin, ~/.cargo/bin, ~/.rustup, ~/.local/bin, ~/.sdkman/candidates/java]
+  path:
+    - ~/bin
+    - ~/go/bin
+    - ~/.cargo/bin
+    - ~/.local/bin
+    - /usr/local/share/dotnet
+    - /opt/homebrew/opt/openjdk@25/bin
+    - ~/.sdkman/candidates/java/current/bin
+# HOME is fresh inside the sandbox, so rustup's proxies need the host's
+# toolchain directory.
+env:
+  RUSTUP_HOME: ~/.rustup

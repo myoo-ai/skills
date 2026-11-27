@@ -1,0 +1,54 @@
+description: a hype README is rewritten without lint violations and keeps the commands, fields and config path
+skills: [no-ai-patterns]
+requires: [myoo]
+prompt: |
+  make readme.md read less like AI. Edit it in place: no emoji, no bold feature
+  list, no "Why Tidewatch?" section or empty praise, and the first sentence
+  should say what Tidewatch does. Keep the install command, the crontab
+  example, what gets recorded per run, the alert channels and the config path.
+  `myoo prose_lint readme.md` should report no violations and a lower AI score
+  than it gives the current version.
+graders:
+  - name: readme.md was rewritten
+    file: readme.md
+    changed: true
+  - name: no prose_lint violations
+    run: myoo -nf prose_lint readme.md > /dev/null
+  - name: scores below the original's 97 %
+    run: myoo -nf prose_lint readme.md | awk '/AI patterns:/ {f=1; s=$(NF-1)+0} END {exit !(f && s < 97)}'
+  - name: keeps the install command
+    contains: 'curl -fsSL https://example.com/tidewatch/install.sh | sh'
+    in: file:readme.md
+  - name: keeps the crontab example
+    contains: '0 3 * * * tidewatch run --name nightly-backup -- /usr/local/bin/backup.sh'
+    in: file:readme.md
+  - name: keeps the recorded fields
+    regex: '(?i)exit code[\s\S]{0,80}duration[\s\S]{0,80}200 lines'
+    in: file:readme.md
+  - name: keeps the alert channels
+    regex: '(?i)email[\s\S]{0,40}slack[\s\S]{0,40}webhook'
+    in: file:readme.md
+  - name: keeps the config path
+    contains: '~/.config/tidewatch/config.toml'
+    in: file:readme.md
+  - name: no emoji
+    regex: '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]'
+    in: file:readme.md
+    not: true
+  - name: no bold
+    regex: '\*\*'
+    in: file:readme.md
+    not: true
+  - name: no Why Tidewatch section
+    regex: '(?i)why tidewatch'
+    in: file:readme.md
+    not: true
+  - name: no hollow adjectives
+    regex: '(?i)\b(powerful|blazing|seamless(ly)?|effortless|robust)\b'
+    in: file:readme.md
+    not: true
+  - name: first sentence says what Tidewatch does
+    judge: The first sentence after the title states what Tidewatch does (it watches or reports on cron jobs), not a slogan or generic praise.
+    in: file:readme.md
+  - name: skill loaded
+    skill: no-ai-patterns

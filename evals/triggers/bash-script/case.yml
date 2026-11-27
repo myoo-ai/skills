@@ -1,0 +1,7 @@
+description: a shell script, not covered by any language skill
+kind: trigger
+expect: none
+query: near_miss
+prompt: |
+  Write a bash one-liner that deletes files older than 14 days from
+  /var/log/myapp but keeps the newest 5 no matter their age.

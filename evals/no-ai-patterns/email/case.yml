@@ -1,0 +1,59 @@
+description: a chatbot-sounding incident email loses its boilerplate and lint violations but keeps every fact
+skills: [no-ai-patterns]
+requires: [myoo]
+prompt: |
+  this customer email in email.md reads like a chatbot wrote it, can you fix it
+  before I send it? Edit email.md in place. Every time, count and measure in it
+  has to stay, but the headings, emoji and boilerplate (the well-wishing, the
+  apology for any inconvenience, the commitment paragraph) can go.
+  `myoo prose_lint email.md` should report no violations and a lower AI score
+  than it gives the current version.
+graders:
+  - name: email.md was rewritten
+    file: email.md
+    changed: true
+  - name: no prose_lint violations
+    run: myoo -nf prose_lint email.md > /dev/null
+  - name: scores below the original
+    run: score() { myoo -nf prose_lint "$1" | awk '/AI patterns:/ {f=1; s=$(NF-1)+0} END {if (!f) exit 1; print s}'; }; o=$(score ../original/email.md) && n=$(score email.md) && awk -v n="$n" -v o="$o" 'BEGIN {exit !(n < o)}'
+  - name: keeps the start time
+    regex: '14:05'
+    in: file:email.md
+  - name: keeps the end time
+    regex: '15:47'
+    in: file:email.md
+  - name: keeps the failed count
+    regex: '\b312\b'
+    in: file:email.md
+  - name: keeps the late count
+    regex: '\b41\b'
+    in: file:email.md
+  - name: keeps the cause
+    regex: '(?i)load balancer'
+    in: file:email.md
+  - name: keeps the replay deadline
+    regex: '16:30'
+    in: file:email.md
+  - name: keeps the renewal window
+    regex: '\b30 days\b'
+    in: file:email.md
+  - name: keeps the alert window
+    regex: '\b14 days\b'
+    in: file:email.md
+  - name: keeps the 5-minute check
+    regex: '(?i)\b(5|five)[ -]minutes?\b'
+    in: file:email.md
+  - name: no headings
+    regex: '(?m)^\s*(#|\*\*[^*\n]+\*\*\s*$)'
+    in: file:email.md
+    not: true
+  - name: no emoji
+    regex: '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]'
+    in: file:email.md
+    not: true
+  - name: no boilerplate
+    regex: '(?i)finds you well|any inconvenience|don''t hesitate|valued customer|commitment to you'
+    in: file:email.md
+    not: true
+  - name: skill loaded
+    skill: no-ai-patterns

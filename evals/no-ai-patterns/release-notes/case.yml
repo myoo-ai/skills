@@ -1,0 +1,40 @@
+description: hype release notes are rewritten without lint violations and keep every number, link, the config example and the upgrade command
+skills: [no-ai-patterns]
+requires: [myoo]
+prompt: |
+  the 2.4.0 release notes in CHANGELOG.md read like a chatbot wrote them. Rewrite
+  them in place so they sound like a maintainer wrote them, no emoji and no
+  thank-you or conclusion fluff. Every number, issue link, the config example
+  and the upgrade command have to stay as they are, and the breaking change
+  has to stay clear. `myoo prose_lint CHANGELOG.md` should report no violations
+  and a lower AI score than it gives the current version.
+graders:
+  - name: CHANGELOG.md was rewritten
+    file: CHANGELOG.md
+    changed: true
+  - name: no prose_lint violations
+    run: myoo -nf prose_lint CHANGELOG.md > /dev/null
+  - name: scores below the original
+    run: score() { myoo -nf prose_lint "$1" | awk '/AI patterns:/ {f=1; s=$(NF-1)+0} END {if (!f) exit 1; print s}'; }; o=$(score ../original/CHANGELOG.md) && n=$(score CHANGELOG.md) && awk -v n="$n" -v o="$o" 'BEGIN {exit !(n < o)}'
+  - name: keeps the config example byte for byte
+    run: sh ../eval/codeblocks.sh CHANGELOG.md
+  - name: keeps every link
+    run: sh ../eval/links.sh CHANGELOG.md
+  - name: keeps every number
+    run: sh ../eval/numbers.sh CHANGELOG.md
+  - name: keeps the upgrade command
+    contains: 'ferrylog self-update --version 2.4.0'
+    in: file:CHANGELOG.md
+  - name: keeps the breaking change
+    regex: '`batch_size`[\s\S]{0,200}`max_batch_bytes`|`max_batch_bytes`[\s\S]{0,200}`batch_size`'
+    in: file:CHANGELOG.md
+  - name: no emoji
+    regex: '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]'
+    in: file:CHANGELOG.md
+    not: true
+  - name: no launch hype or sign-off
+    regex: '(?i)thrilled|game-changing|leap forward|heartfelt|testament|in conclusion|happy logging|experience the difference'
+    in: file:CHANGELOG.md
+    not: true
+  - name: skill loaded
+    skill: no-ai-patterns

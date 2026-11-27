@@ -1,0 +1,32 @@
+description: the synonym method rewrites a plain-text support reply word by word, keeps its sentences and facts and warns about the method's limits
+skills: [synonym-rewrite]
+requires: [myoo]
+prompt: |
+  I drafted this support reply in reply.txt with ChatGPT and it sounds like it.
+  Can you use the synonym method to make it sound less AI? The order number,
+  the amount, the dates and the names have to stay. Edit reply.txt in place.
+graders:
+  - name: reply.txt was rewritten
+    file: reply.txt
+    changed: true
+  - name: words were swapped (at least 25 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh reply.txt 25
+  - name: keeps the sentences (same count, give or take 1)
+    run: sh ../eval/sentences.sh reply.txt
+  - name: keeps every number
+    run: sh ../eval/numbers.sh reply.txt
+  - name: keeps the names
+    regex: 'Martina[\s\S]*Daniel[\s\S]*Fernhouse Ceramics'
+    in: file:reply.txt
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < reply.txt); o=$(wc -w < ../original/reply.txt); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: used myoo synonym_rewrite
+    regex: 'synonym_rewrite'
+    in: tools
+    dimension: process
+  - name: warns about the method
+    judge: The reply tells the user that swapping words for synonyms can leave the text stilted, awkward or odd, or that the method keeps the AI sentence structure, or suggests a better way to make the text read less like AI.
+    in: final
+    dimension: process
+  - name: skill loaded
+    skill: synonym-rewrite

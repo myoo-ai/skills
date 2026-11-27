@@ -1,0 +1,6 @@
+kind: trigger
+expect: improve-harness
+query: implicit
+prompt: |
+  I've been using my coding agent for a few months with mostly the default
+  settings. What should I change in its setup to get more out of it?

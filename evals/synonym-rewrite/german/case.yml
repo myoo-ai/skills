@@ -1,0 +1,32 @@
+description: the synonym method rewrites a German product text with the German thesaurus and keeps it German
+skills: [synonym-rewrite]
+requires: [myoo]
+prompt: |
+  Kannst du den Text in beschreibung.md mit der Synonym-Methode weniger nach KI
+  klingen lassen? Er muss auf Deutsch bleiben, die Überschriften und die Länge
+  sollen gleich bleiben. Bitte direkt in der Datei ändern.
+graders:
+  - name: beschreibung.md was rewritten
+    file: beschreibung.md
+    changed: true
+  - name: words were swapped (at least 25 % of the original's longer words are gone)
+    run: sh ../eval/swapped.sh beschreibung.md 25
+  - name: still German (at least 70 % of the original's German function words)
+    run: c() { grep -oiwE 'der|die|das|und|ist|mit|für|von|ein|eine|sich|auf' "$1" | wc -l; }; n=$(c beschreibung.md); o=$(c ../original/beschreibung.md); test $((n * 10)) -ge $((o * 7))
+  - name: not translated into English
+    regex: '(?i)\b(the|and|with|is|of)\b'
+    in: file:beschreibung.md
+    max: 2
+  - name: keeps the headings
+    run: test "$(grep -c '^#' beschreibung.md)" -eq "$(grep -c '^#' ../original/beschreibung.md)"
+  - name: keeps the length (within 25 % of the original's words)
+    run: n=$(wc -w < beschreibung.md); o=$(wc -w < ../original/beschreibung.md); test $((n * 4)) -ge $((o * 3)) && test $((n * 4)) -le $((o * 5))
+  - name: keeps the numbers
+    regex: '\b40\b[\s\S]*\b250\b'
+    in: file:beschreibung.md
+  - name: ran synonym_rewrite with German
+    regex: 'synonym_rewrite[^\n]{0,40}(--lang[= ]|-l[= ]?)de\b'
+    in: tools
+    dimension: process
+  - name: skill loaded
+    skill: synonym-rewrite

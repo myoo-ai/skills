@@ -1,0 +1,14 @@
+{
+  "name": "order-report",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Summarises webshop orders per customer",
+  "main": "src/orders.js",
+  "scripts": {
+    "test": "node --test",
+    "report": "node src/report.js"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

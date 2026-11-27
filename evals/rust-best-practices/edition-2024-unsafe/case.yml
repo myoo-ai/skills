@@ -1,0 +1,51 @@
+description: migrates a Rust FFI crate to edition 2024 and makes its unsafe code sound and documented
+skills: [rust-best-practices]
+prompt: |
+  Please move the numffi crate to the 2024 edition. Our CI builds it with
+  Rust 1.88, the oldest toolchain we support, and with current stable
+  (1.100, installed here).
+
+  While you are in there, our C team reports two things: c_abs is now
+  called from several threads at once, and C callers sometimes pass NULL
+  with a length of 0 to checksum, which must then return the checksum of
+  no bytes. A security review of this crate is next, so leave the unsafe
+  code in a state that holds up to one.
+
+  Keep the public functions and their results the same; C callers link the
+  staticlib against checksum. No dependencies (there is no network
+  access). cargo fmt, cargo clippy --all-targets -- -D warnings and
+  cargo test must be clean.
+requires: [cargo]
+graders:
+  - name: skill loaded
+    skill: rust-best-practices
+  - name: fmt, clippy and tests pass
+    run: cargo fmt --check && cargo clippy --offline --all-targets -- -D warnings && cargo test --offline
+    timeout: 5m
+  - name: results unchanged, NULL handled, history thread-safe
+    timeout: 5m
+    run: |
+      mkdir -p tests && cp ../eval/zz_grader.rs tests/ && cargo test --offline --test zz_grader
+  - name: every unsafe block has a SAFETY comment
+    timeout: 5m
+    run: cargo clippy --offline --lib -- -D warnings -D clippy::undocumented_unsafe_blocks -D clippy::missing_safety_doc
+  - name: edition 2024
+    regex: '(?m)^edition\s*=\s*"2024"'
+    in: file:Cargo.toml
+  - name: rust-version set to the oldest CI toolchain
+    regex: '(?m)^rust-version\s*=\s*"1\.88(\.0)?"'
+    in: file:Cargo.toml
+  - name: unsafe extern block
+    regex: 'unsafe extern "C" \{'
+    in: file:src/lib.rs
+  - name: unsafe(no_mangle) attribute
+    regex: '#\[unsafe\(no_mangle\)\]'
+    in: file:src/lib.rs
+  - name: no static mut
+    regex: '\bstatic mut\b'
+    in: file:src/lib.rs
+    not: true
+  - name: no raw pointers where a slice iterator does
+    regex: 'as_mut_ptr\(\)'
+    in: file:src/lib.rs
+    not: true

@@ -1,0 +1,7 @@
+kind: trigger
+expect: go-best-practices
+query: implicit
+prompt: |
+  I need a small command in main.go that reads a list of URLs from stdin, checks
+  them with HEAD requests, at most 8 at a time, and prints the ones that don't
+  answer 200. Can you write it?

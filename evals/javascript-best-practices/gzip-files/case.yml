@@ -1,0 +1,45 @@
+description: turns callback stream and file-descriptor code into promise APIs that propagate errors, clean up partial output and close files
+skills: [javascript-best-practices]
+requires: [node]
+prompt: |
+  src/compress.js archives our nightly exports and keeps hurting us:
+
+  - when an export is missing, the whole process dies with an unhandled
+    'error' event and leaves an empty .gz behind;
+  - when writing the .gz fails, the callback never fires and the job hangs;
+  - after a few days the archiver fails with EMFILE (too many open files),
+    apparently from isGzip.
+
+  Please change both functions to return promises instead of taking a
+  callback: `compressFile(src, dest)` resolves once dest is completely
+  written and rejects on any failure, without leaving a partial dest behind;
+  `isGzip(file)` resolves true or false and rejects on errors. We run
+  Node.js 26 with ES modules and want no new dependencies. Update the tests
+  and keep `npm test` (`node --test`) green.
+graders:
+  - name: skill loaded
+    skill: javascript-best-practices
+  - name: tests pass
+    run: node --test
+    timeout: 3m
+  - name: promises, error propagation, cleanup and no fd leak
+    timeout: 3m
+    run: node --test ../eval/g.test.mjs
+  - name: streams composed with pipeline from node:stream/promises
+    regex: '(?s)from\s+[''"]node:stream/promises[''"].*\bpipeline\(|\bpipeline\(.*from\s+[''"]node:stream/promises[''"]'
+    in: file:src/compress.js
+  - name: no .pipe() chains
+    regex: '\.pipe\('
+    in: file:src/compress.js
+    not: true
+  - name: file handle released with await using or finally
+    regex: '\bawait using\b|\bfinally\b'
+    in: file:src/compress.js
+  - name: built-ins imported with the node scheme
+    regex: 'from\s+[''"](fs|zlib|stream)(/promises)?[''"]'
+    in: file:src/compress.js
+    not: true
+  - name: no callbacks left in the API
+    regex: '\bcb\b|callback'
+    in: file:src/compress.js
+    not: true

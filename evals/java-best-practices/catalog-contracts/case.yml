@@ -1,0 +1,54 @@
+description: fixes equals/hashCode, an overflowing compareTo, null lookups and leaked mutable state in a Java catalog on JDK 25
+tags: [java, bugfix]
+skills: [java-best-practices]
+requires: [javac]
+prompt: |
+  A pile of bug reports about the product catalog in src/com/example/catalog (JDK 25,
+  plain javac, see README.md):
+
+  - The feed import drops duplicate products by putting them in a HashSet, but the
+    duplicates survive.
+  - The price list puts our 50 000 000.00 gift card before a 2.99 pen, and it loses
+    products that cost the same as another one. Sort by price, then by SKU.
+  - Someone called `catalog.getProducts().clear()` in a report job and emptied the live
+    catalog. Nothing a caller gets back from Catalog may change the catalog.
+  - `find` returns null for an unknown SKU and we've had three NullPointerExceptions in
+    callers this month. Make the "not found" case part of find's return type so callers
+    can't forget it.
+  - A product is a value: same SKU, name and price means the same product, and it must
+    not change once created (a price change is a new Product). A null product, SKU or
+    name should fail right away instead of blowing up later.
+  - `javac -Xlint:all -Werror` from the README fails now, it must pass.
+
+  Keep `new Product(sku, name, priceCents)` and Catalog's methods, update Main to match.
+graders:
+  - name: skill loaded
+    skill: java-best-practices
+  - name: compiles with -Xlint:all -Werror
+    run: |
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -Xlint:all -Werror -d "$t/out" $(find src -name '*.java')
+    timeout: 3m
+  - name: value semantics, ordering, Optional lookup and no leaked state
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      javac -cp "$t/out" -d "$t/out" ../eval/CatalogCheck.java
+      java -cp "$t/out" CatalogCheck
+    timeout: 3m
+  - name: Main dedupes the feed
+    run: |
+      set -e
+      t=$(mktemp -d "$TMPDIR/check.XXXXXX")
+      javac -d "$t/out" $(find src -name '*.java')
+      java -cp "$t/out" com.example.catalog.Main | grep -qx 'products: 4'
+    timeout: 3m
+  - name: comparator built from Comparator.comparing
+    run: grep -rqE 'Comparator\s*\.\s*comparing(Long|Int)?\(' src
+  - name: no subtraction or int cast in comparisons
+    run: '! grep -rnE ''\(int\)\s*\(.*-|priceCents\(?\)?\s*-\s*\w+\.(get)?[pP]riceCents'' src'
+  - name: no null returned from Catalog
+    regex: 'return\s+null\s*;'
+    in: file:src/com/example/catalog/Catalog.java
+    not: true

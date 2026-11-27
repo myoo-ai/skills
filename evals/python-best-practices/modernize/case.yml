@@ -1,0 +1,73 @@
+description: modernizes a Python 3.8-era package to Python 3.15 typing, dataclasses, pattern matching and pathlib without changing behavior
+skills: [python-best-practices]
+requires: [python3]
+prompt: |
+  ledger/core.py dates from the Python 3.8 days. We now run Python 3.15 only
+  (3.15.1 is installed as python3), so please modernize the package for it:
+
+  - Declare the supported Python version in pyproject.toml.
+  - Bring the type hints and the code up to current Python, and drop the
+    hand-written __init__/__repr__/__eq__ boilerplate of LineItem, Invoice
+    and Page. Make sure files are always closed.
+  - Issue timestamps must be timezone-aware UTC, and nothing deprecated may
+    remain: the tests must pass with `python3 -X dev -W error -m unittest`.
+
+  Keep the public API and behavior the same, including positional
+  constructor arguments, and stay stdlib-only.
+graders:
+  - name: skill loaded
+    skill: python-best-practices
+  - name: tests pass in dev mode with warnings as errors
+    run: python3 -X dev -W error -m unittest
+    timeout: 3m
+  - name: package compiles
+    run: python3 -m compileall -q ledger tests
+  - name: behavior unchanged
+    timeout: 3m
+    run: |
+      cp ../eval/test_zz_grader.py tests/ && python3 -X dev -W error -m unittest tests.test_zz_grader
+  - name: record types are dataclasses
+    run: python3 -c 'import dataclasses, ledger; assert all(dataclasses.is_dataclass(c) for c in (ledger.LineItem, ledger.Invoice, ledger.Page))'
+  - name: requires-python declares a 3.12+ floor
+    regex: 'requires-python\s*=\s*"\s*>=\s*3\.1[2-5]\b'
+    in: file:pyproject.toml
+  - name: no typing.List, Dict, Optional, Union
+    regex: '\b(List|Dict|Tuple|Set|Optional|Union)\['
+    in: file:ledger/core.py
+    not: true
+  - name: no TypeVar, TypeAlias or Generic
+    regex: 'TypeVar\(|TypeAlias|Generic\['
+    in: file:ledger/core.py
+    not: true
+  - name: PEP 695 generic class
+    regex: 'class Page\[\w+\]'
+    in: file:ledger/core.py
+  - name: PEP 695 generic functions
+    regex: 'def (paginate|first)\['
+    in: file:ledger/core.py
+    min: 2
+  - name: type statement for the alias
+    regex: '(?m)^type Amount = '
+    in: file:ledger/core.py
+  - name: no future annotations import
+    regex: 'from __future__ import annotations'
+    in: file:ledger/core.py
+    not: true
+  - name: no quoted forward references
+    regex: '"Page\['
+    in: file:ledger/core.py
+    not: true
+  - name: match statement on event shapes
+    regex: '(?s)match event:.*case \{'
+    in: file:ledger/core.py
+  - name: pathlib instead of os.path
+    regex: 'os\.(path|listdir)'
+    in: file:ledger/core.py
+    not: true
+  - name: files read through a context manager or pathlib
+    regex: '\.read_text\(|with (open|\w+\.open)\('
+    in: file:ledger/core.py
+  - name: no utcnow
+    regex: 'utcnow\('
+    in: file:ledger/core.py
+    not: true
